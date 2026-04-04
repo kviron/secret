@@ -393,3 +393,19 @@ pub trait ModTypeExtension: Extension {
 | mod_management | modInstaller | FOMOD support |
 | download_management | downloadManager | Rust async (reqwest + tokio) |
 | Telemetry | Optional | Skip for privacy |
+
+---
+
+## Design Reference
+
+![Pantheon UI Design Reference](https://i.pinimg.com/736x/49/ce/7a/49ce7a22004b8f3f391c3f6e4a06b568.jpg)
+
+**Description:** Dark-themed mod manager UI with sidebar navigation, game cards grid, mod list with toggle switches.
+
+**Key Design Elements:**
+- Sidebar with navigation icons and labels
+- Card-based game grid with cover art and metadata
+- Mod list with status indicators and toggle switches
+- Dark color scheme with accent colors for interactive elements
+- Clean typography with clear visual hierarchy
+- Subtle gradients and smooth transitions for interactive states

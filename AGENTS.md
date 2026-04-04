@@ -24,9 +24,18 @@ Pantheon is a cross-platform desktop mod manager built with Tauri 2.x, Solid.js,
 **Tech Stack:**
 - Desktop Framework: Tauri 2.x
 - UI Framework: Solid.js with TypeScript
+- UI Components: Ark UI (@ark-ui/solid) — Headless UI primitives
+- Styling: Panda CSS — Design tokens + compile-time CSS
 - Backend: Rust
 - Database: SQLite (rusqlite)
 - Architecture: Feature-Sliced Design v2.1 (FSD)
+
+**Design Guidelines:**
+- Dark theme with modern gaming aesthetic
+- Use Ark UI headless components (Switch, Dialog, etc.) for all interactive elements
+- Sidebar navigation layout
+- Gradient accents, smooth animations, polished transitions
+- Follow design references for visual style
 
 ---
 
@@ -172,6 +181,45 @@ export const GameCard: Component<GameCardProps> = (props) => {
     );
 };
 ```
+
+**Ark UI Components:**
+- Use Ark UI headless components for all interactive elements
+- Import from `@ark-ui/solid/{component}` (e.g., `@ark-ui/solid/switch`)
+- Style using CSS attributes and data attributes
+- Supported components: Switch, Dialog, Tabs, Popover, etc.
+
+```typescript
+// Good - Ark UI Switch
+import { Switch } from '@ark-ui/solid/switch';
+
+<Switch.Root checked={isEnabled()} onCheckedChange={(e) => setEnabled(e.checked)}>
+  <Switch.Control>
+    <Switch.Thumb />
+  </Switch.Control>
+  <Switch.Label>Enable mod</Switch.Label>
+  <Switch.HiddenInput />
+</Switch.Root>
+
+// Good - Ark UI Dialog
+import { Dialog } from '@ark-ui/solid/dialog';
+
+<Dialog.Root open={isOpen()} onOpenChange={(e) => setOpen(e.open)}>
+  <Dialog.Backdrop />
+  <Dialog.Positioner>
+    <Dialog.Content>
+      <Dialog.Title>Confirm</Dialog.Title>
+      <Dialog.Description>Are you sure?</Dialog.Description>
+      <Dialog.CloseTrigger>Close</Dialog.CloseTrigger>
+    </Dialog.Content>
+  </Dialog.Positioner>
+</Dialog.Root>
+```
+
+**Styling (Panda CSS):**
+- Use CSS custom properties for theming
+- Follow dark theme color palette from `index.css`
+- Use design tokens: `--bg-primary`, `--accent-primary`, `--radius-md`, etc.
+- Sidebar layout with fixed sidebar + scrollable main content
 
 **Signals and Stores:**
 - Use `createSignal` for simple state
