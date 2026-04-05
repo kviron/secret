@@ -1,0 +1,138 @@
+export const en = {
+  'app.documentTitle': 'Pantheon',
+
+  'nav.games': 'Games',
+  'nav.mods': 'Mods',
+  'nav.deployments': 'Deployments',
+  'nav.settings': 'Settings',
+  'nav.generalSection': 'General',
+  'nav.gameMods': 'Mods',
+  'nav.gamePlugins': 'Plugins',
+  'nav.gameSaves': 'Save games',
+  'nav.expandSidebar': 'Expand sidebar',
+  'nav.collapseSidebar': 'Collapse sidebar',
+
+  'sidebar.launchGame': 'Launch game',
+
+  'dashboard.title': 'Games Library',
+  'dashboard.emptyTitle': 'No games detected',
+  'dashboard.emptyDescription':
+    'Click "Detect Games" to scan for installed games on your system, or "Add from Folder..." to manually select a game folder.',
+  'dashboard.installPathMissing': 'Install path not found',
+  'dashboard.launch': 'Launch',
+  'dashboard.manage': 'Manage',
+  'dashboard.modBadgeUnsupported': 'Not supported',
+  'dashboard.modBadgeFull': 'Full mod support',
+  'dashboard.modBadgePartial': 'Limited mod support',
+  'dashboard.modBadgeNone': 'No mod support',
+
+  'detect.detectGames': 'Detect Games',
+  'detect.scanning': 'Scanning...',
+  'detect.addFromFolder': 'Add from Folder...',
+  'detect.dialogSelectGameFolder': 'Select game installation folder',
+
+  'settings.title': 'Settings',
+  'settings.tab.appearance': 'Appearance',
+  'settings.tab.games': 'Games',
+  'settings.tab.mods': 'Mods',
+  'settings.tab.deploy': 'Deployment',
+  'settings.tab.downloads': 'Downloads',
+  'settings.tab.loadorder': 'Load order',
+  'settings.tab.extensions': 'Extensions',
+  'settings.tabDesc.appearance':
+    'Theme and interface display. Choose dark, light, or follow the system setting.',
+  'settings.tabDesc.games': 'Game discovery, install paths, and supported titles catalog.',
+  'settings.tabDesc.mods': 'Archive installation, mod types, and installer behavior.',
+  'settings.tabDesc.deploy': 'Strategies for deploying files into the game folder.',
+  'settings.tabDesc.downloads': 'Download queue and source integration (planned).',
+  'settings.tabDesc.loadorder': 'Plugin load order and conflict resolution (planned).',
+  'settings.tabDesc.extensions': 'Pantheon extensions and third-party plugins (planned).',
+  'settings.themeNavAria': 'Settings sections',
+  'settings.theme.light.title': 'Light',
+  'settings.theme.light.desc': 'Light background and contrast for daytime use.',
+  'settings.theme.dark.title': 'Dark',
+  'settings.theme.dark.desc': 'Current Pantheon look, easy on the eyes.',
+  'settings.theme.system.title': 'System',
+  'settings.theme.system.desc': 'Match Windows / macOS light or dark preference.',
+  'settings.placeholder.title': 'Coming soon',
+  'settings.placeholder.text': 'Settings for “{label}” will appear here.',
+  'settings.language.title': 'Language',
+  'settings.language.description': 'Default language for the Pantheon interface.',
+  'settings.language.ru': 'Russian',
+  'settings.language.en': 'English',
+
+  'modsPage.title': 'Mods',
+  'modsPage.emptyTitle': 'Mod management',
+  'modsPage.emptyDescription': 'Open the library and use Manage on a game, or pick a game from the sidebar when one is active.',
+
+  'pluginsPage.title': 'Plugins',
+  'pluginsPage.backTitle': 'Back to mods',
+  'pluginsPage.loading': 'Loading plugins…',
+  'pluginsPage.emptyTitle': 'No plugin files',
+  'pluginsPage.emptyDesc':
+    'No .esp / .esm / .esl files were found in the game data folder, or the folder is unavailable.',
+  'pluginsPage.unsupportedTitle': 'Plugins not available for this game',
+  'pluginsPage.unsupportedDesc':
+    'The plugin list (.esp / .esm / .esl in the Data folder) is only shown for supported Gamebryo titles, like in Vortex’s Plugins tab.',
+
+  'savesPage.title': 'Save games',
+  'savesPage.backTitle': 'Back to mods',
+  'savesPage.loading': 'Loading saves…',
+  'savesPage.emptyTitle': 'No saves found',
+  'savesPage.emptyDesc':
+    'No save files in the known folder for this title, or save location is not mapped yet for this game id.',
+  'savesPage.unsupportedTitle': 'Save games not available for this title',
+  'savesPage.unsupportedDesc':
+    'Listing saves from Documents is only enabled for games with a known save folder mapping (see list_game_saves).',
+
+  'deploymentsPage.title': 'Deployments',
+  'deploymentsPage.emptyTitle': 'Deployments',
+  'deploymentsPage.emptyDescription': 'Manage mod deployments across your game library.',
+
+  'gameDetail.backTitle': 'Back to library',
+  'gameDetail.backAria': 'Back to library',
+  'gameDetail.modCountSuffix': 'mods',
+  'gameDetail.modCountSuffixOne': 'mod',
+  'gameDetail.missingTitle': 'Install folder not found.',
+  'gameDetail.missingDesc':
+    'Your game entry and mod folder in Pantheon are kept. Choose a new folder or remove the game from the library (mods in the database will be removed).',
+  'gameDetail.relink': 'Choose folder…',
+  'gameDetail.removeFromLibrary': 'Remove from library…',
+  'gameDetail.dialogRemoveTitle': 'Remove game from library?',
+  'gameDetail.dialogRemoveDesc':
+    'Related mods and deployment state will be removed from the Pantheon database.',
+  'gameDetail.cancel': 'Cancel',
+  'gameDetail.remove': 'Remove',
+  'gameDetail.dialogModsCount': 'Mods to remove from catalog: {count}.',
+  'gameDetail.emptyModsTitle': 'No mods installed',
+  'gameDetail.emptyModsDesc': 'Click “Install Mod” to add mods from a local archive file.',
+  'gameDetail.modActive': 'Active',
+  'gameDetail.modInactive': 'Inactive',
+  'gameDetail.dialogSelectInstall': 'Select game installation folder',
+
+  'installMod.button': 'Install Mod',
+  'installMod.titleDisabled': 'Set the game install folder first',
+
+  'gameMods.tabsAria': 'Mod sources',
+  'gameMods.tab.installed': 'Installed',
+  'gameMods.tab.all': 'All',
+  'gameMods.allPlaceholderTitle': 'Catalog not available yet',
+  'gameMods.allPlaceholderDesc':
+    'Here you will browse all mods from the Pantheon catalog once the backend is connected. For now, use the Installed tab and “Install Mod” for local archives.',
+
+  'gameMods.toolbar.aria': 'Mod actions',
+  'gameMods.toolbar.installFromFile': 'Install from file',
+  'gameMods.toolbar.checkUpdates': 'Check for updates',
+  'gameMods.toolbar.categories': 'Categories',
+  'gameMods.toolbar.manageRules': 'Manage rules',
+  'gameMods.toolbar.deployMods': 'Deploy mods',
+  'gameMods.toolbar.purgeMods': 'Purge mods',
+  'gameMods.toolbar.resetManifest': 'Reset to manifest',
+  'gameMods.toolbar.importFrom': 'Import from…',
+  'gameMods.toolbar.history': 'History',
+  'gameMods.toolbar.open': 'Open…',
+  'gameMods.toolbar.tutorials': 'Tutorials',
+  'gameMods.toolbar.menuPlaceholder': 'Coming soon',
+} as const;
+
+export type MessageKey = keyof typeof en;

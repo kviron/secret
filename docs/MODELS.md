@@ -150,7 +150,8 @@ export type ModType =
   | 'dazip' 
   | 'enb' 
   | 'scriptExtender' 
-  | 'modPlugin';
+  | 'modPlugin'
+  | 'gameSaves';
 ```
 
 ### Games Library card (dashboard)

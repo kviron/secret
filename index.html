@@ -3,9 +3,40 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#000000" />
+    <meta name="theme-color" content="#0a0a0b" />
+    <script>
+      (function () {
+        try {
+          var k = 'pantheon-theme-preference';
+          var t = localStorage.getItem(k);
+          var resolved;
+          if (t === 'light') resolved = 'light';
+          else if (t === 'dark') resolved = 'dark';
+          else if (t === 'system')
+            resolved = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+          else resolved = 'dark';
+          document.documentElement.setAttribute('data-theme', resolved);
+          if (t) document.documentElement.setAttribute('data-theme-preference', t);
+        } catch (e) {}
+      })();
+    </script>
+    <script>
+      (function () {
+        try {
+          var k = 'pantheon-locale';
+          var v = localStorage.getItem(k);
+          var lang =
+            v === 'ru' || v === 'en'
+              ? v
+              : navigator.language && navigator.language.toLowerCase().indexOf('ru') === 0
+                ? 'ru'
+                : 'en';
+          document.documentElement.lang = lang === 'ru' ? 'ru' : 'en';
+        } catch (e) {}
+      })();
+    </script>
     <link rel="icon" type="image/svg+xml" href="/src/assets/logo.svg" />
-    <title>Tauri + Solid + Typescript App</title>
+    <title>Pantheon</title>
   </head>
 
   <body>

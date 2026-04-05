@@ -2,18 +2,49 @@
 
 ## Documentation
 
-For AI-assisted development and detailed specifications, see:
+Links to all documentation in this repo (paths relative to project root), with short notes on when to use each file.
 
-```
-docs/
-├── AI-OPTIMIZED.md           # Master documentation index
-├── MODELS.md                 # Complete type definitions (Rust + TypeScript)
-├── DATABASE_SCHEMA.md        # Full SQL DDL with migrations
-├── MODULE_SPECS.md           # Complete module specifications
-├── FLOWS.md                  # Step-by-step implementation flows
-├── API_REFERENCE.md          # Tauri commands and events
-└── ARCHITECTURE.md           # System overview
-```
+### Core specifications (`docs/`)
+
+| Document | Purpose |
+|----------|---------|
+| [docs/AI-OPTIMIZED.md](docs/AI-OPTIMIZED.md) | Master AI doc index, quick start, recommended reading order |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | System overview: layers, modules, data flow |
+| [docs/MODELS.md](docs/MODELS.md) | Rust + TypeScript types and Tauri JSON / IPC naming rules |
+| [docs/DATABASE_SCHEMA.md](docs/DATABASE_SCHEMA.md) | SQL DDL, migrations, SQLite indexes |
+| [docs/MODULE_SPECS.md](docs/MODULE_SPECS.md) | Aggregated module specs: responsibilities and public APIs |
+| [docs/FLOWS.md](docs/FLOWS.md) | Step-by-step flows and user journeys for implementation |
+| [docs/API_REFERENCE.md](docs/API_REFERENCE.md) | Tauri commands and events reference |
+
+### Cross-cutting: integration, platform, roadmap
+
+| Document | Purpose |
+|----------|---------|
+| [docs/MODULE_CONNECTIONS.md](docs/MODULE_CONNECTIONS.md) | How modules connect: dependencies, data flow, communication |
+| [docs/DEEP_LINKS.md](docs/DEEP_LINKS.md) | Custom URL schemes (`pantheon://`), OAuth callbacks, external deep links |
+| [docs/FEATURE_AUDIT.md](docs/FEATURE_AUDIT.md) | Feature-to-module mapping, gaps, and priorities vs other mod managers |
+| [docs/CROSS_PLATFORM.md](docs/CROSS_PLATFORM.md) | Windows / Linux / macOS support matrix and platform adapters |
+
+### Module deep dives (`docs/modules/`)
+
+| Document | Purpose |
+|----------|---------|
+| [docs/modules/managed-game-context.md](docs/modules/managed-game-context.md) | “Current game” context: store, routes, sidebar (Vortex-style) |
+| [docs/modules/ui-structure.md](docs/modules/ui-structure.md) | Frontend: Solid.js, FSD, routing, Panda CSS, UI structure |
+| [docs/modules/game-detector.md](docs/modules/game-detector.md) | Detecting and registering installed games |
+| [docs/modules/game-launcher.md](docs/modules/game-launcher.md) | Launching games from the app |
+| [docs/modules/mod-installer.md](docs/modules/mod-installer.md) | Installing mods from archives, FOMOD, and related behavior |
+| [docs/modules/deploy-manager.md](docs/modules/deploy-manager.md) | Deploy/stage files into the game folder; enable/disable |
+| [docs/modules/download-manager.md](docs/modules/download-manager.md) | Download queue and source integration |
+| [docs/modules/mod-repository-api.md](docs/modules/mod-repository-api.md) | Remote mod catalog / repository API |
+| [docs/modules/dependency-resolution.md](docs/modules/dependency-resolution.md) | Mod dependency graph and resolution |
+| [docs/modules/load-order-manager.md](docs/modules/load-order-manager.md) | Plugin / mod load order |
+| [docs/modules/profile-manager.md](docs/modules/profile-manager.md) | Per-game mod profiles |
+| [docs/modules/database-manager.md](docs/modules/database-manager.md) | SQLite layer and persistence |
+| [docs/modules/security-validation.md](docs/modules/security-validation.md) | Path/archive/mod validation and security |
+| [docs/modules/backup-restore.md](docs/modules/backup-restore.md) | Backup and restore |
+| [docs/modules/extension-system.md](docs/modules/extension-system.md) | Extensions and plugin architecture |
+| [docs/modules/update-checker.md](docs/modules/update-checker.md) | Application update checks |
 
 ---
 
@@ -316,16 +347,16 @@ async fn get_game(id: String) -> Result<Game, String> {
 
 ## Documentation for AI Code Generation
 
-The `docs/` directory contains AI-optimized documentation. See `docs/AI-OPTIMIZED.md` for the master index.
+AI-oriented docs live under `docs/`. For the full file list and what each file is for, see **[Documentation](#documentation)** above.
 
 **Reading Order for AI:**
-1. `docs/AI-OPTIMIZED.md` - Start here for navigation
-2. `docs/ARCHITECTURE.md` - System overview
-3. `docs/MODELS.md` - Complete type definitions
-4. `docs/DATABASE_SCHEMA.md` - SQL schemas with migrations
-5. `docs/MODULE_SPECS.md` - Module APIs and implementations
-6. `docs/FLOWS.md` - Step-by-step implementation flows
-7. `docs/API_REFERENCE.md` - Command and event reference
+1. [docs/AI-OPTIMIZED.md](docs/AI-OPTIMIZED.md) — navigation and quick start
+2. [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — system overview
+3. [docs/MODELS.md](docs/MODELS.md) — types and data contracts
+4. [docs/DATABASE_SCHEMA.md](docs/DATABASE_SCHEMA.md) — database schema and migrations
+5. [docs/MODULE_SPECS.md](docs/MODULE_SPECS.md) — modules and APIs
+6. [docs/FLOWS.md](docs/FLOWS.md) — implementation flows
+7. [docs/API_REFERENCE.md](docs/API_REFERENCE.md) — Tauri commands and events
 
 **Key Points for AI:**
 - All types from `MODELS.md` must be implemented exactly
@@ -455,3 +486,6 @@ pub async fn install_mod(
 - VS Code with `rust-analyzer` and `volar` (Solid.js)
 - Set `typescript.preferences.importModuleSpecifier` to `non-relative`
 - Enable `editor.formatOnSave`
+
+
+При редактирование кода пожалуйста записывай в документацию изменение логики или добавляй новую информацию если ты пишешь новый код

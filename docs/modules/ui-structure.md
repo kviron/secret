@@ -72,6 +72,10 @@ const components = {
 };
 ```
 
+## Managed game scope (sidebar + routes)
+
+When a **managed game** is set, the sidebar **header** switches from the Pantheon wordmark to a **game banner** (cover art + name + circular Play → `launchGame`). The **collapse** control lives at the **bottom** of the sidebar. The first nav block lists only **Games, Deployments, Settings** (no global Mods link). A second block lists **Mods / Plugins / Saves** for that game (`/game/:id/*`). See **[managed-game-context.md](./managed-game-context.md)** for state, persistence, routes, and file paths.
+
 ## FSD Layers
 
 FSD uses 6 standardized layers with strict top-down import direction:
@@ -206,20 +210,20 @@ export interface Game {
 
 interface GameState {
   games: Game[];
-  selectedGameId: string | null;
+  managedGameId: string | null;
   isLoading: boolean;
 }
 
 const [state, setState] = createStore<GameState>({
   games: [],
-  selectedGameId: null,
+  managedGameId: null,
   isLoading: false,
 });
 
 export const gameStore = {
   get games() { return state.games; },
-  get selectedGame() { 
-    return state.games.find(g => g.id === state.selectedGameId);
+  get managedGame() { 
+    return state.games.find(g => g.id === state.managedGameId);
   },
   
   async loadGames() {

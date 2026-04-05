@@ -2,7 +2,8 @@ import { Component, createMemo, createSignal, onMount, onCleanup, Show } from 's
 import { useNavigate } from '@solidjs/router';
 import { useGameStore } from '@/entities/game';
 import { DetectGamesButton, DetectionProgress, ScanCustomPathButton } from '@/features/detect-games';
-import { getGameModStatusBadge } from '@/shared/lib/game-support';
+import { getGameModStatusBadge, isGameUnsupportedByPantheon } from '@/shared/lib/game-support';
+import { useI18n } from '@/shared/lib/i18n';
 import { launchGame } from '@/shared/lib/launch-game';
 import { steamHeaderImageUrl } from '@/shared/lib/steam-art';
 import type { Game } from '@/shared/types';
@@ -43,7 +44,8 @@ const GameCardCover: Component<{ game: Game }> = (props) => {
 };
 
 export const DashboardPage: Component = () => {
-  const { state, loadGames, cleanupListeners } = useGameStore();
+  const { t } = useI18n();
+  const { state, loadGames, cleanupListeners, setManagedGame } = useGameStore();
   const navigate = useNavigate();
 
   onMount(() => {
@@ -54,8 +56,9 @@ export const DashboardPage: Component = () => {
     cleanupListeners();
   });
 
-  const handleSelectGame = (gameId: string) => {
-    navigate(`/game/${gameId}`);
+  const handleManageGame = (gameId: string) => {
+    setManagedGame(gameId);
+    navigate(`/game/${gameId}/mods`);
   };
 
   const handleLaunchGame = (game: Game) => {
@@ -69,7 +72,7 @@ export const DashboardPage: Component = () => {
   return (
     <>
       <header class="top-bar">
-        <h1 class="page-title">Games Library</h1>
+        <h1 class="page-title">{t('dashboard.title')}</h1>
         <div class="detect-actions">
           <DetectGamesButton onDetected={loadGames} />
           <ScanCustomPathButton />
@@ -88,17 +91,19 @@ export const DashboardPage: Component = () => {
       {state.games.length === 0 && !state.isLoading && !state.isDetecting ? (
         <div class="empty-state">
           <div class="empty-icon">🎮</div>
-          <h2>No games detected</h2>
-          <p>Click "Detect Games" to scan for installed games on your system, or "Add from Folder..." to manually select a game folder.</p>
+          <h2>{t('dashboard.emptyTitle')}</h2>
+          <p>{t('dashboard.emptyDescription')}</p>
         </div>
       ) : (
         <div class="game-grid">
           {state.games.map((game) => {
             const modBadge = getGameModStatusBadge(game);
+            const unsupported = isGameUnsupportedByPantheon(game);
             return (
               <Card
                 class={`game-card${game.installPathMissing ? ' game-card--missing' : ''}`}
-                onClick={() => handleSelectGame(game.id)}
+                hoverable={!unsupported}
+                onClick={unsupported ? undefined : () => handleManageGame(game.id)}
               >
                 <GameCardCover game={game} />
                 <div class="game-card-body">
@@ -109,13 +114,13 @@ export const DashboardPage: Component = () => {
                     </span>
                     {game.installPathMissing && (
                       <span class="game-meta-badge game-meta-badge--missing-path">
-                        Установка не найдена
+                        {t('dashboard.installPathMissing')}
                       </span>
                     )}
                     <span
                       class={`game-meta-badge game-meta-badge--${modBadge.variant}`}
                     >
-                      {modBadge.label}
+                      {t(modBadge.labelKey)}
                     </span>
                   </div>
                   <p class="game-path">{game.installPath}</p>
@@ -125,13 +130,23 @@ export const DashboardPage: Component = () => {
                       onClick={(e) => e.stopPropagation()}
                       role="presentation"
                     >
+                      <Show when={!unsupported}>
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          class="game-card-manage"
+                          onClick={() => handleManageGame(game.id)}
+                        >
+                          {t('dashboard.manage')}
+                        </Button>
+                      </Show>
                       <Button
-                        variant="primary"
+                        variant={unsupported ? 'primary' : 'secondary'}
                         size="sm"
                         class="game-card-launch"
                         onClick={() => handleLaunchGame(game)}
                       >
-                        Запустить
+                        {t('dashboard.launch')}
                       </Button>
                     </div>
                   </Show>

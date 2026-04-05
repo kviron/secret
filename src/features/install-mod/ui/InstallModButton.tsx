@@ -2,6 +2,7 @@ import { Component, createSignal } from 'solid-js';
 import { Button } from '@/shared/ui/Button';
 import { useModStore } from '@/entities/mod';
 import { open } from '@tauri-apps/plugin-dialog';
+import { useI18n } from '@/shared/lib/i18n';
 
 interface InstallModButtonProps {
   gameId: string;
@@ -10,6 +11,7 @@ interface InstallModButtonProps {
 }
 
 export const InstallModButton: Component<InstallModButtonProps> = (props) => {
+  const { t } = useI18n();
   const [isInstalling, setIsInstalling] = createSignal(false);
   const { addMod } = useModStore();
 
@@ -44,9 +46,9 @@ export const InstallModButton: Component<InstallModButtonProps> = (props) => {
       variant="primary"
       size="md"
       disabled={props.disabled}
-      title={props.disabled ? 'Сначала укажите папку установки игры' : undefined}
+      title={props.disabled ? t('installMod.titleDisabled') : undefined}
     >
-      Install Mod
+      {t('installMod.button')}
     </Button>
   );
 };

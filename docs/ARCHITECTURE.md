@@ -414,7 +414,7 @@ pub trait ModTypeExtension: Extension {
 **Description:** Dark-themed mod manager UI with sidebar navigation, game cards grid, mod list with toggle switches.
 
 **Key Design Elements:**
-- Sidebar with navigation icons and labels
+- Sidebar: general links (games library, deployments, settings); when a **managed game** is active, a game banner (art + launch) and a second group for that game’s mods, plugins, and saves — see [modules/managed-game-context.md](./modules/managed-game-context.md)
 - Card-based game grid with cover art and metadata
 - Mod list with status indicators and toggle switches
 - Dark color scheme with accent colors for interactive elements

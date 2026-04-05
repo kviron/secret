@@ -1,0 +1,139 @@
+import type { MessageKey } from './en';
+
+export const ru: Record<MessageKey, string> = {
+  'app.documentTitle': 'Pantheon',
+
+  'nav.games': 'Игры',
+  'nav.mods': 'Моды',
+  'nav.deployments': 'Развёртывания',
+  'nav.settings': 'Настройки',
+  'nav.generalSection': 'Общее',
+  'nav.gameMods': 'Моды',
+  'nav.gamePlugins': 'Плагины',
+  'nav.gameSaves': 'Сохранения',
+  'nav.expandSidebar': 'Развернуть боковую панель',
+  'nav.collapseSidebar': 'Свернуть боковую панель',
+
+  'sidebar.launchGame': 'Запустить игру',
+
+  'dashboard.title': 'Библиотека игр',
+  'dashboard.emptyTitle': 'Игры не найдены',
+  'dashboard.emptyDescription':
+    'Нажмите «Найти игры», чтобы просканировать систему, или «Добавить из папки…», чтобы указать папку игры вручную.',
+  'dashboard.installPathMissing': 'Установка не найдена',
+  'dashboard.launch': 'Запустить',
+  'dashboard.manage': 'Управлять',
+  'dashboard.modBadgeUnsupported': 'Не поддерживается',
+  'dashboard.modBadgeFull': 'Полная поддержка модов',
+  'dashboard.modBadgePartial': 'Ограниченная поддержка модов',
+  'dashboard.modBadgeNone': 'Без поддержки модов',
+
+  'detect.detectGames': 'Найти игры',
+  'detect.scanning': 'Сканирование…',
+  'detect.addFromFolder': 'Добавить из папки…',
+  'detect.dialogSelectGameFolder': 'Выберите папку установки игры',
+
+  'settings.title': 'Настройки',
+  'settings.tab.appearance': 'Внешний вид',
+  'settings.tab.games': 'Игры',
+  'settings.tab.mods': 'Моды',
+  'settings.tab.deploy': 'Развёртывание',
+  'settings.tab.downloads': 'Загрузки',
+  'settings.tab.loadorder': 'Порядок загрузки',
+  'settings.tab.extensions': 'Расширения',
+  'settings.tabDesc.appearance':
+    'Тема оформления и отображение интерфейса. Выберите тёмную, светлую или системную тему.',
+  'settings.tabDesc.games': 'Обнаружение игр, пути установки и каталог поддерживаемых тайтлов.',
+  'settings.tabDesc.mods': 'Установка архивов, типы модов и поведение установщика.',
+  'settings.tabDesc.deploy': 'Стратегии развёртывания файлов в папку игры.',
+  'settings.tabDesc.downloads': 'Очередь загрузок и интеграция с источниками (в планах).',
+  'settings.tabDesc.loadorder': 'Порядок загрузки плагинов и разрешение конфликтов (в планах).',
+  'settings.tabDesc.extensions': 'Расширения Pantheon и сторонние плагины (в планах).',
+  'settings.themeNavAria': 'Разделы настроек',
+  'settings.theme.light.title': 'Светлая',
+  'settings.theme.light.desc': 'Светлый фон и контраст для дневной работы.',
+  'settings.theme.dark.title': 'Тёмная',
+  'settings.theme.dark.desc': 'Текущий стиль Pantheon, комфортный для глаз.',
+  'settings.theme.system.title': 'Системная',
+  'settings.theme.system.desc': 'Как в Windows / macOS: светлая или тёмная по настройке системы.',
+  'settings.placeholder.title': 'Раздел в разработке',
+  'settings.placeholder.text': 'Здесь появятся настройки модуля «{label}».',
+  'settings.language.title': 'Язык',
+  'settings.language.description': 'Язык интерфейса Pantheon по умолчанию.',
+  'settings.language.ru': 'Русский',
+  'settings.language.en': 'English',
+
+  'modsPage.title': 'Моды',
+  'modsPage.emptyTitle': 'Управление модами',
+  'modsPage.emptyDescription':
+    'Откройте библиотеку и нажмите «Управлять» у игры или выберите игру в боковой панели, когда контекст активен.',
+
+  'pluginsPage.title': 'Плагины',
+  'pluginsPage.backTitle': 'Назад к модам',
+  'pluginsPage.loading': 'Загрузка плагинов…',
+  'pluginsPage.emptyTitle': 'Нет файлов плагинов',
+  'pluginsPage.emptyDesc':
+    'В папке данных игры не найдены .esp / .esm / .esl или папка недоступна.',
+  'pluginsPage.unsupportedTitle': 'Плагины недоступны для этой игры',
+  'pluginsPage.unsupportedDesc':
+    'Список плагинов (.esp / .esm / .esl в папке Data) показывается только для поддерживаемых тайтлов на движке Gamebryo — как вкладка Plugins в Vortex.',
+
+  'savesPage.title': 'Сохранения',
+  'savesPage.backTitle': 'Назад к модам',
+  'savesPage.loading': 'Загрузка сохранений…',
+  'savesPage.emptyTitle': 'Сохранения не найдены',
+  'savesPage.emptyDesc':
+    'В известной папке для этого тайтла нет файлов сохранений или путь ещё не сопоставлен с id игры.',
+  'savesPage.unsupportedTitle': 'Сохранения недоступны для этого тайтла',
+  'savesPage.unsupportedDesc':
+    'Просмотр сохранений из «Документы» включён только для игр с известным сопоставлением папки (команда list_game_saves).',
+
+  'deploymentsPage.title': 'Развёртывания',
+  'deploymentsPage.emptyTitle': 'Развёртывания',
+  'deploymentsPage.emptyDescription': 'Управляйте развёртыванием модов в библиотеке игр.',
+
+  'gameDetail.backTitle': 'Назад к библиотеке',
+  'gameDetail.backAria': 'Назад к библиотеке',
+  'gameDetail.modCountSuffix': 'модов',
+  'gameDetail.modCountSuffixOne': 'мод',
+  'gameDetail.missingTitle': 'Папка установки не найдена.',
+  'gameDetail.missingDesc':
+    'Запись игры и каталог модов в Pantheon сохранены. Укажите новую папку или удалите игру из библиотеки (моды в базе будут удалены).',
+  'gameDetail.relink': 'Указать папку…',
+  'gameDetail.removeFromLibrary': 'Удалить из библиотеки…',
+  'gameDetail.dialogRemoveTitle': 'Удалить игру из библиотеки?',
+  'gameDetail.dialogRemoveDesc':
+    'Из базы Pantheon будут удалены связанные моды и состояние деплоя.',
+  'gameDetail.cancel': 'Отмена',
+  'gameDetail.remove': 'Удалить',
+  'gameDetail.dialogModsCount': 'Будет удалено модов в каталоге: {count}.',
+  'gameDetail.emptyModsTitle': 'Моды не установлены',
+  'gameDetail.emptyModsDesc': 'Нажмите «Установить мод», чтобы добавить мод из локального архива.',
+  'gameDetail.modActive': 'Включён',
+  'gameDetail.modInactive': 'Выключен',
+  'gameDetail.dialogSelectInstall': 'Выберите папку установки игры',
+
+  'installMod.button': 'Установить мод',
+  'installMod.titleDisabled': 'Сначала укажите папку установки игры',
+
+  'gameMods.tabsAria': 'Источники модов',
+  'gameMods.tab.installed': 'Установленные',
+  'gameMods.tab.all': 'Все',
+  'gameMods.allPlaceholderTitle': 'Каталог пока недоступен',
+  'gameMods.allPlaceholderDesc':
+    'Здесь появится обзор всех модов из каталога Pantheon после подключения бэкенда. Пока используйте вкладку «Установленные» и «Установить мод» для локальных архивов.',
+
+  'gameMods.toolbar.aria': 'Действия с модами',
+  'gameMods.toolbar.installFromFile': 'Установить из файла',
+  'gameMods.toolbar.checkUpdates': 'Проверить обновления',
+  'gameMods.toolbar.categories': 'Категории',
+  'gameMods.toolbar.manageRules': 'Правила',
+  'gameMods.toolbar.deployMods': 'Развернуть моды',
+  'gameMods.toolbar.purgeMods': 'Очистить развёртывание',
+  'gameMods.toolbar.resetManifest': 'Сбросить к манифесту',
+  'gameMods.toolbar.importFrom': 'Импорт из…',
+  'gameMods.toolbar.history': 'История',
+  'gameMods.toolbar.open': 'Открыть…',
+  'gameMods.toolbar.tutorials': 'Обучение',
+  'gameMods.toolbar.menuPlaceholder': 'Скоро',
+};

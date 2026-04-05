@@ -21,7 +21,9 @@ export type ModType =
   | 'dazip' 
   | 'enb' 
   | 'scriptExtender' 
-  | 'modPlugin';
+  | 'modPlugin'
+  /** Известный путь к сохранениям в MVP (`list_game_saves` по `game.id`). */
+  | 'gameSaves';
 
 export interface GameDetails {
   steamAppId: number | null;
@@ -90,4 +92,10 @@ export interface GameDetectionError {
   gameName: string;
   error: string;
   recoverable: boolean;
+}
+
+/** Save file row from `list_game_saves` (Tauri). */
+export interface SaveFileEntry {
+  name: string;
+  path: string;
 }

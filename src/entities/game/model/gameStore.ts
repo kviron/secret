@@ -1,11 +1,13 @@
 import { createStore } from 'solid-js/store';
 import type { Game, DetectionProgress, GameDetectionError, RemoveGameResult } from '@/shared/types';
 import { sortGamesByModSupport } from '@/shared/lib/game-support';
+import { readManagedGameIdFromStorage, writeManagedGameIdToStorage } from '@/shared/lib/managed-game-storage';
 import { gameApi } from '../api/gameApi';
 
 interface GameStoreState {
   games: Game[];
-  selectedGameId: string | null;
+  /** Current game for scoped sidebar and `/game/:id/*` tooling. Persisted in localStorage. */
+  managedGameId: string | null;
   isLoading: boolean;
   isDetecting: boolean;
   detectionProgress: DetectionProgress | null;
@@ -13,9 +15,19 @@ interface GameStoreState {
   error: string | null;
 }
 
+function validateManagedIdAgainstGames(
+  managedId: string | null,
+  games: Game[],
+): string | null {
+  if (managedId == null || managedId === '') {
+    return null;
+  }
+  return games.some((g) => g.id === managedId) ? managedId : null;
+}
+
 const [state, setState] = createStore<GameStoreState>({
   games: [],
-  selectedGameId: null,
+  managedGameId: readManagedGameIdFromStorage(),
   isLoading: false,
   isDetecting: false,
   detectionProgress: null,
@@ -27,6 +39,12 @@ let unlistenProgress: (() => void) | null = null;
 let unlistenError: (() => void) | null = null;
 let unlistenDetected: (() => void) | null = null;
 let unlistenCompleted: (() => void) | null = null;
+
+const applyManagedGameId = (gameId: string | null) => {
+  const next = gameId && gameId.length > 0 ? gameId : null;
+  setState('managedGameId', next);
+  writeManagedGameIdToStorage(next);
+};
 
 export const useGameStore = () => {
   const setupListeners = async () => {
@@ -67,6 +85,16 @@ export const useGameStore = () => {
     unlistenCompleted = null;
   };
 
+  const syncManagedGameAfterGamesLoad = (games: Game[]) => {
+    const fromStorage = readManagedGameIdFromStorage();
+    const candidate = state.managedGameId ?? fromStorage;
+    const valid = validateManagedIdAgainstGames(candidate, games);
+    if (valid !== state.managedGameId) {
+      setState('managedGameId', valid);
+    }
+    writeManagedGameIdToStorage(valid);
+  };
+
   const loadGames = async () => {
     setState('isLoading', true);
     setState('error', null);
@@ -74,6 +102,7 @@ export const useGameStore = () => {
       await setupListeners();
       const games = await gameApi.getGames();
       setState('games', sortGamesByModSupport(games));
+      syncManagedGameAfterGamesLoad(games);
     } catch (err) {
       setState('error', String(err));
     } finally {
@@ -90,6 +119,7 @@ export const useGameStore = () => {
       await setupListeners();
       const games = await gameApi.detectGames();
       setState('games', sortGamesByModSupport(games));
+      syncManagedGameAfterGamesLoad(games);
     } catch (err) {
       setState('error', String(err));
     } finally {
@@ -106,6 +136,7 @@ export const useGameStore = () => {
       await setupListeners();
       const games = await gameApi.scanCustomPath(path);
       setState('games', sortGamesByModSupport(games));
+      syncManagedGameAfterGamesLoad(games);
     } catch (err) {
       setState('error', String(err));
     } finally {
@@ -113,8 +144,13 @@ export const useGameStore = () => {
     }
   };
 
-  const selectGame = (gameId: string) => {
-    setState('selectedGameId', gameId);
+  /** Sets the managed game and persists it. Used when entering `/game/:id/*` or from Manage. */
+  const setManagedGame = (gameId: string) => {
+    applyManagedGameId(gameId);
+  };
+
+  const clearManagedGame = () => {
+    applyManagedGameId(null);
   };
 
   const clearDetectionErrors = () => {
@@ -126,6 +162,9 @@ export const useGameStore = () => {
       const g = await gameApi.getGame(gameId);
       if (!g) {
         setState('games', (prev) => prev.filter((x) => x.id !== gameId));
+        if (state.managedGameId === gameId) {
+          clearManagedGame();
+        }
         return;
       }
       setState('games', (prev) => {
@@ -142,6 +181,9 @@ export const useGameStore = () => {
   const removeGameFromLibrary = async (gameId: string): Promise<RemoveGameResult> => {
     const result = await gameApi.removeGameFromLibrary(gameId);
     setState('games', (prev) => prev.filter((g) => g.id !== gameId));
+    if (state.managedGameId === gameId) {
+      clearManagedGame();
+    }
     return result;
   };
 
@@ -150,7 +192,8 @@ export const useGameStore = () => {
     loadGames,
     detectGames,
     scanCustomPath,
-    selectGame,
+    setManagedGame,
+    clearManagedGame,
     clearDetectionErrors,
     cleanupListeners,
     refreshGame,

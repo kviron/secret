@@ -56,6 +56,8 @@ pub fn run() {
             commands::deploy::deploy_mod,
             commands::deploy::undeploy_mod,
             commands::deploy::deploy_all,
+            commands::game_content::list_game_plugins,
+            commands::game_content::list_game_saves,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

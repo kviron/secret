@@ -15,7 +15,9 @@ docs/
 ├── FLOWS.md                  # Step-by-step implementation flows
 ├── API_REFERENCE.md          # Tauri commands and events
 ├── DEEP_LINKS.md            # URL scheme handling (pantheon://)
-└── ARCHITECTURE.md           # System overview (start here)
+├── ARCHITECTURE.md           # System overview (start here)
+└── modules/
+    └── managed-game-context.md  # Managed game store, routes, sidebar (Vortex-style)
 ```
 
 ## Quick Start for AI

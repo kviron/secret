@@ -29,6 +29,26 @@ Step-by-step implementation flows for core user interactions. Each flow shows th
 
 ---
 
+## Flow: Managed game (library → scope)
+
+**Trigger**: User chooses a game to manage from the dashboard (e.g. **Manage** or opening the game scope).
+
+**Flow**:
+
+```
+1. UI sets managedGameId in the game store and persists pantheon.managedGameId in localStorage.
+2. Navigate to /game/:id/mods (canonical entry for game scope).
+3. Sidebar: top area becomes the game banner (cover art + Play); below “General” (Games, Deployments, Settings); then the game block (Mods, Plugins, Saves). Collapse toggle stays at the bottom of the sidebar.
+4. On app start, loadGames() then validate managedGameId; drop if the game no longer exists.
+5. remove_game_from_library: if gameId === managedGameId, clear store + localStorage and redirect to /; sidebar header returns to Pantheon branding.
+```
+
+**Spec**: [modules/managed-game-context.md](./modules/managed-game-context.md)
+
+**Code pointers**: `src/entities/game/model/gameStore.ts`, `src/pages/game-scope/`, `src/widgets/Sidebar/index.tsx`, `src/app/router/index.tsx`
+
+---
+
 ## Flow 2: Mod Installation
 
 **Trigger**: User selects mod archive (zip/7z/rar)

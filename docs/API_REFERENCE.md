@@ -145,6 +145,34 @@ pub async fn get_mods(game_id: String) -> Result<Vec<Mod>, String>
 
 ---
 
+#### list_game_plugins
+
+```rust
+#[tauri::command]
+pub async fn list_game_plugins(game_id: String, state: State<'_, AppState>) -> Result<Vec<String>, String>
+```
+
+**Parameters**:
+- `gameId: string` - Game ID
+
+**Returns**: Sorted plugin file names (`.esp`, `.esm`, `.esl`) under the game `support_path`.
+
+---
+
+#### list_game_saves
+
+```rust
+#[tauri::command]
+pub async fn list_game_saves(game_id: String, state: State<'_, AppState>) -> Result<Vec<SaveFileEntry>, String>
+```
+
+**Parameters**:
+- `gameId: string` - Game ID
+
+**Returns**: Entries `{ name, path }` for save files in the known Windows Documents save folder for supported catalog game IDs; empty if unmapped or missing.
+
+---
+
 #### get_mod
 
 ```rust

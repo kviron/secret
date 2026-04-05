@@ -1,6 +1,12 @@
 import { listen, UnlistenFn } from '@tauri-apps/api/event';
 import { api } from '@/shared/api/client';
-import type { Game, DetectionProgress, GameDetectionError, RemoveGameResult } from '@/shared/types';
+import type {
+  Game,
+  DetectionProgress,
+  GameDetectionError,
+  RemoveGameResult,
+  SaveFileEntry,
+} from '@/shared/types';
 
 export const gameApi = {
   getGames: () => api.invoke<Game[]>('get_games'),
@@ -11,6 +17,10 @@ export const gameApi = {
   unregisterGame: (gameId: string) => api.invoke<void>('unregister_game', { gameId }),
   removeGameFromLibrary: (gameId: string) =>
     api.invoke<RemoveGameResult>('remove_game_from_library', { gameId }),
+
+  listGamePlugins: (gameId: string) => api.invoke<string[]>('list_game_plugins', { gameId }),
+
+  listGameSaves: (gameId: string) => api.invoke<SaveFileEntry[]>('list_game_saves', { gameId }),
 
   onDetectionStarted: (cb: () => void): Promise<UnlistenFn> =>
     listen('game_detection_started', () => cb()),
