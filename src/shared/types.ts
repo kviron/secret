@@ -109,4 +109,18 @@ export interface GameDetectionError {
 export interface SaveFileEntry {
   name: string;
   path: string;
+  size: number;
+  sizeLabel: string;
+  created?: string;
+  modified?: string;
+}
+
+/** Backup row from `list_save_backups` (Tauri). */
+export interface SaveBackupEntry {
+  name: string;
+  path: string;
+  size: number;
+  sizeLabel: string;
+  created?: string;
+  originalSaveName: string;
 }

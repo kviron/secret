@@ -7,7 +7,7 @@ import { GameLibraryCard } from './GameLibraryCard';
 
 export const DashboardPage: Component = () => {
   const { t, locale } = useI18n();
-  const { state, loadGames, cleanupListeners, setManagedGame } = useGameStore();
+  const { state, loadGames, cleanupListeners, setManagedGame, removeGameFromLibrary } = useGameStore();
   const navigate = useNavigate();
 
   onMount(() => {
@@ -21,6 +21,18 @@ export const DashboardPage: Component = () => {
   const handleManageGame = (gameId: string) => {
     setManagedGame(gameId);
     navigate(`/game/${gameId}/mods`);
+  };
+
+  const handleDeleteGame = async (gameId: string) => {
+    const confirmMsg = t('gameDetail.dialogRemoveTitle');
+    if (window.confirm(confirmMsg)) {
+      try {
+        await removeGameFromLibrary(gameId);
+      } catch (err) {
+        console.error(err);
+        window.alert(String(err));
+      }
+    }
   };
 
   return (
@@ -58,6 +70,7 @@ export const DashboardPage: Component = () => {
                 t={t}
                 locale={locale()}
                 onManage={handleManageGame}
+                onDelete={handleDeleteGame}
               />
             )}
           </For>

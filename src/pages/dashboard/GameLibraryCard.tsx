@@ -5,14 +5,17 @@ import {
   createResource,
   createSignal,
 } from 'solid-js';
+import { Portal } from 'solid-js/web';
 import type { Resource } from 'solid-js';
-import { HoverCard } from '@ark-ui/solid/hover-card';
+import { Popover } from '@ark-ui/solid/popover';
+import { Trash2, MoreVertical } from 'lucide-solid';
 import { gameApi } from '@/entities/game';
 import { getGameModStatusBadge, isGameUnsupportedByPantheon } from '@/shared/lib/game-support';
 import { formatBytes } from '@/shared/lib/format-bytes';
 import type { Locale } from '@/shared/lib/i18n';
 import type { TranslateFn } from '@/shared/lib/i18n';
 import { launchGame } from '@/shared/lib/launch-game';
+import { invoke } from '@tauri-apps/api/core';
 import { steamHeaderImageUrl } from '@/shared/lib/steam-art';
 import type { Game, GameInstallStats } from '@/shared/types';
 import { Button } from '@/shared/ui/Button';
@@ -25,10 +28,10 @@ function formatDateTime(iso: string, locale: Locale): string {
   return d.toLocaleString(tag, { dateStyle: 'medium', timeStyle: 'short' });
 }
 
-const DetailRow: Component<{ label: string; value: string; valueClass?: string }> = (props) => (
+const DetailRow: Component<{ label: string; value: string; valueClass?: string; onValueClick?: () => void }> = (props) => (
   <div class="game-card-details-row">
     <dt>{props.label}</dt>
-    <dd class={props.valueClass}>{props.value}</dd>
+    <dd class={props.valueClass} onClick={props.onValueClick} style={props.onValueClick ? 'cursor: pointer;' : undefined}>{props.value}</dd>
   </div>
 );
 
@@ -70,6 +73,8 @@ const GameCardDetails: Component<{
   t: TranslateFn;
   locale: Locale;
   installStats: Resource<GameInstallStats | undefined>;
+  onOpenFolder: (path: string) => void;
+  onDelete: () => void;
 }> = (props) => {
   const modBadge = () => getGameModStatusBadge(props.game);
   const mergeLabel = () =>
@@ -115,6 +120,7 @@ const GameCardDetails: Component<{
           label={props.t('dashboard.detailPath')}
           value={props.game.installPath}
           valueClass="game-card-details-path"
+          onValueClick={() => props.onOpenFolder(props.game.installPath)}
         />
         <DetailRow label={props.t('dashboard.detailStore')} value={props.game.launcher} />
         <DetailRow label={props.t('dashboard.detailInstalledVersion')} value={versionLine()} />
@@ -129,7 +135,7 @@ const GameCardDetails: Component<{
             value={steamManifestLine()!}
           />
         </Show>
-        <DetailRow label={props.t('dashboard.detailSupportPath')} value={props.game.supportPath} />
+        <DetailRow label={props.t('dashboard.detailSupportPath')} value={props.game.supportPath} onValueClick={() => props.onOpenFolder(props.game.supportPath)} />
         <DetailRow label={props.t('dashboard.detailModSupport')} value={props.t(modBadge().labelKey)} />
         <DetailRow label={props.t('dashboard.detailMergeMods')} value={mergeLabel()} />
         <Show when={props.game.extensionId}>
@@ -153,6 +159,12 @@ const GameCardDetails: Component<{
           value={formatDateTime(props.game.updatedAt, props.locale)}
         />
       </dl>
+      <div class="game-card-details-actions">
+        <Button variant="danger" size="sm" onClick={props.onDelete}>
+          <Trash2 size={16} />
+          <span>{props.t('dashboard.deleteGame')}</span>
+        </Button>
+      </div>
     </div>
   );
 };
@@ -163,6 +175,7 @@ export interface GameLibraryCardProps {
   t: TranslateFn;
   locale: Locale;
   onManage: (gameId: string) => void;
+  onDelete: (gameId: string) => void;
 }
 
 export const GameLibraryCard: Component<GameLibraryCardProps> = (props) => {
@@ -175,6 +188,8 @@ export const GameLibraryCard: Component<GameLibraryCardProps> = (props) => {
     return gameApi.getGameInstallStats(id);
   });
 
+  let cardRef: HTMLDivElement | undefined;
+
   const handleLaunch = () => {
     void launchGame(props.game).catch((err: unknown) => {
       const msg = err instanceof Error ? err.message : String(err);
@@ -183,10 +198,16 @@ export const GameLibraryCard: Component<GameLibraryCardProps> = (props) => {
     });
   };
 
+  const handleOpenFolder = (path: string) => {
+    void invoke('open_folder', { path }).catch((err: unknown) => {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error(err);
+      window.alert(msg);
+    });
+  };
+
   return (
-    <HoverCard.Root
-      closeDelay={180}
-      openDelay={220}
+    <Popover.Root
       onOpenChange={(d) => {
         if (d.open) {
           setStatsId(props.game.id);
@@ -196,74 +217,81 @@ export const GameLibraryCard: Component<GameLibraryCardProps> = (props) => {
         placement: 'right-start',
         gutter: 12,
         flip: true,
-        shift: true,
+        getAnchorRect: () => cardRef?.getBoundingClientRect() ?? null,
       }}
     >
-      <HoverCard.Context>
-        {(hc) => (
-          <div {...hc().getTriggerProps()} class="game-card-hover-wrap">
-            <Card
-              class={`game-card${props.game.installPathMissing ? ' game-card--missing' : ''}`}
-              hoverable={!unsupported()}
-              onClick={unsupported() ? undefined : () => props.onManage(props.game.id)}
-            >
-              <GameCardCover game={props.game} />
-              <div class="game-card-body">
-                <h3>{props.game.name}</h3>
-                <div class="game-meta">
-                  <span class={`launcher-badge launcher-${props.game.launcher}`}>
-                    {props.game.launcher}
-                  </span>
-                  {props.game.installPathMissing && (
-                    <span class="game-meta-badge game-meta-badge--missing-path">
-                      {props.t('dashboard.installPathMissing')}
-                    </span>
-                  )}
-                  <span class={`game-meta-badge game-meta-badge--${modBadge().variant}`}>
-                    {props.t(modBadge().labelKey)}
-                  </span>
-                </div>
-                <Show when={props.game.installPathMissing !== true}>
-                  <div
-                    class="game-card-actions"
-                    onClick={(e) => e.stopPropagation()}
-                    role="presentation"
-                  >
-                    <Show when={!unsupported() && props.managedGameId !== props.game.id}>
-                      <Button
-                        variant="primary"
-                        size="sm"
-                        class="game-card-manage"
-                        onClick={() => props.onManage(props.game.id)}
-                      >
-                        {props.t('dashboard.manage')}
-                      </Button>
-                    </Show>
-                    <Button
-                      variant={unsupported() ? 'primary' : 'secondary'}
-                      size="sm"
-                      class="game-card-launch"
-                      onClick={() => handleLaunch()}
-                    >
-                      {props.t('dashboard.launch')}
-                    </Button>
-                  </div>
-                </Show>
-              </div>
-            </Card>
+      <Card
+        ref={cardRef}
+        class={`game-card${props.game.installPathMissing ? ' game-card--missing' : ''}`}
+        hoverable={!unsupported()}
+        onClick={unsupported() ? undefined : () => props.onManage(props.game.id)}
+      >
+        <GameCardCover game={props.game} />
+        <div class="game-card-body">
+          <h3>{props.game.name}</h3>
+          <div class="game-meta">
+            <span class={`launcher-badge launcher-${props.game.launcher}`}>
+              {props.game.launcher}
+            </span>
+            {props.game.installPathMissing && (
+              <span class="game-meta-badge game-meta-badge--missing-path">
+                {props.t('dashboard.installPathMissing')}
+              </span>
+            )}
+            <span class={`game-meta-badge game-meta-badge--${modBadge().variant}`}>
+              {props.t(modBadge().labelKey)}
+            </span>
           </div>
-        )}
-      </HoverCard.Context>
-      <HoverCard.Positioner class="game-card-details-positioner">
-        <HoverCard.Content class="game-card-details-popover">
-          <GameCardDetails
-            game={props.game}
-            t={props.t}
-            locale={props.locale}
-            installStats={installStats}
-          />
-        </HoverCard.Content>
-      </HoverCard.Positioner>
-    </HoverCard.Root>
+          <Show when={props.game.installPathMissing !== true}>
+            <div
+              class="game-card-actions"
+              onClick={(e) => e.stopPropagation()}
+              role="presentation"
+            >
+              <Show when={!unsupported() && props.managedGameId !== props.game.id}>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  class="game-card-manage"
+                  onClick={() => props.onManage(props.game.id)}
+                >
+                  {props.t('dashboard.manage')}
+                </Button>
+              </Show>
+              <Button
+                variant={unsupported() ? 'primary' : 'secondary'}
+                size="sm"
+                class="game-card-launch"
+                onClick={() => handleLaunch()}
+              >
+                {props.t('dashboard.launch')}
+              </Button>
+              <Popover.Trigger
+                type="button"
+                class="game-card-menu-btn"
+                aria-label="More options"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <MoreVertical size={18} />
+              </Popover.Trigger>
+            </div>
+          </Show>
+        </div>
+      </Card>
+      <Portal>
+        <Popover.Positioner class="game-card-details-positioner">
+          <Popover.Content class="game-card-details-popover">
+            <GameCardDetails
+              game={props.game}
+              t={props.t}
+              locale={props.locale}
+              installStats={installStats}
+              onOpenFolder={handleOpenFolder}
+              onDelete={() => props.onDelete(props.game.id)}
+            />
+          </Popover.Content>
+        </Popover.Positioner>
+      </Portal>
+    </Popover.Root>
   );
 };

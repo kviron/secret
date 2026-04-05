@@ -233,13 +233,8 @@ pub fn compute_game_install_stats(game: &Game) -> Result<GameInstallStats, Strin
         }
     }
 
-    let mut installed_version_label =
+    let installed_version_label =
         pe_version::pe_file_version_label(path, &game.details.required_files);
-    if installed_version_label.is_none() {
-        installed_version_label = steam_build_id
-            .as_ref()
-            .map(|b| format!("Steam build {}", b));
-    }
 
     Ok(GameInstallStats {
         disk_usage_bytes,

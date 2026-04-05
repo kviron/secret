@@ -7,6 +7,7 @@ import type {
   GameInstallStats,
   RemoveGameResult,
   SaveFileEntry,
+  SaveBackupEntry,
 } from '@/shared/types';
 
 export const gameApi = {
@@ -24,6 +25,16 @@ export const gameApi = {
   listGamePlugins: (gameId: string) => api.invoke<string[]>('list_game_plugins', { gameId }),
 
   listGameSaves: (gameId: string) => api.invoke<SaveFileEntry[]>('list_game_saves', { gameId }),
+  deleteSave: (gameId: string, savePath: string) =>
+    api.invoke<void>('delete_save', { gameId, savePath }),
+  backupSave: (gameId: string, savePath: string) =>
+    api.invoke<string>('backup_save', { gameId, savePath }),
+  restoreSave: (gameId: string, backupPath: string) =>
+    api.invoke<void>('restore_save', { gameId, backupPath }),
+  listSaveBackups: (gameId: string) =>
+    api.invoke<SaveBackupEntry[]>('list_save_backups', { gameId }),
+  getSavesDirPath: (gameId: string) =>
+    api.invoke<string | null>('get_saves_dir_path', { gameId }),
 
   onDetectionStarted: (cb: () => void): Promise<UnlistenFn> =>
     listen('game_detection_started', () => cb()),

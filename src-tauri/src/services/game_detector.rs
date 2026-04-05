@@ -37,7 +37,15 @@ pub const KNOWN_GAMES: &[GameDefinition] = &[
         steam_app_id: 489830,
         executables: &["SkyrimSE.exe"],
         mod_support: ModSupportLevel::Full,
-        supported_mod_types: &["simple", "fomod", "bsat", "scriptExtender", "enb", "modPlugin", "gameSaves"],
+        supported_mod_types: &[
+            "simple",
+            "fomod",
+            "bsat",
+            "scriptExtender",
+            "enb",
+            "modPlugin",
+            "gameSaves",
+        ],
         merge_mods: true,
         support_path_suffix: "Data",
     },
@@ -47,7 +55,15 @@ pub const KNOWN_GAMES: &[GameDefinition] = &[
         steam_app_id: 72850,
         executables: &["TESV.exe"],
         mod_support: ModSupportLevel::Full,
-        supported_mod_types: &["simple", "fomod", "bsat", "scriptExtender", "enb", "modPlugin", "gameSaves"],
+        supported_mod_types: &[
+            "simple",
+            "fomod",
+            "bsat",
+            "scriptExtender",
+            "enb",
+            "modPlugin",
+            "gameSaves",
+        ],
         merge_mods: true,
         support_path_suffix: "Data",
     },
@@ -57,7 +73,14 @@ pub const KNOWN_GAMES: &[GameDefinition] = &[
         steam_app_id: 611670,
         executables: &["SkyrimVR.exe"],
         mod_support: ModSupportLevel::Full,
-        supported_mod_types: &["simple", "fomod", "bsat", "scriptExtender", "modPlugin", "gameSaves"],
+        supported_mod_types: &[
+            "simple",
+            "fomod",
+            "bsat",
+            "scriptExtender",
+            "modPlugin",
+            "gameSaves",
+        ],
         merge_mods: true,
         support_path_suffix: "Data",
     },
@@ -67,7 +90,14 @@ pub const KNOWN_GAMES: &[GameDefinition] = &[
         steam_app_id: 377160,
         executables: &["Fallout4.exe"],
         mod_support: ModSupportLevel::Full,
-        supported_mod_types: &["simple", "fomod", "bsat", "scriptExtender", "modPlugin", "gameSaves"],
+        supported_mod_types: &[
+            "simple",
+            "fomod",
+            "bsat",
+            "scriptExtender",
+            "modPlugin",
+            "gameSaves",
+        ],
         merge_mods: true,
         support_path_suffix: "Data",
     },
@@ -87,7 +117,14 @@ pub const KNOWN_GAMES: &[GameDefinition] = &[
         steam_app_id: 22380,
         executables: &["FalloutNV.exe"],
         mod_support: ModSupportLevel::Full,
-        supported_mod_types: &["simple", "fomod", "bsat", "scriptExtender", "modPlugin", "gameSaves"],
+        supported_mod_types: &[
+            "simple",
+            "fomod",
+            "bsat",
+            "scriptExtender",
+            "modPlugin",
+            "gameSaves",
+        ],
         merge_mods: true,
         support_path_suffix: "Data",
     },
@@ -97,7 +134,15 @@ pub const KNOWN_GAMES: &[GameDefinition] = &[
         steam_app_id: 22330,
         executables: &["Oblivion.exe"],
         mod_support: ModSupportLevel::Full,
-        supported_mod_types: &["simple", "fomod", "bsat", "scriptExtender", "dazip", "modPlugin", "gameSaves"],
+        supported_mod_types: &[
+            "simple",
+            "fomod",
+            "bsat",
+            "scriptExtender",
+            "dazip",
+            "modPlugin",
+            "gameSaves",
+        ],
         merge_mods: true,
         support_path_suffix: "Data",
     },
@@ -1674,10 +1719,25 @@ impl GameDetector {
         if exes.is_empty() {
             return None;
         }
-        if exes.len() == 1 {
-            return Some(exes[0].clone());
-        }
         let id = game_def.id.to_lowercase();
+        let name_lower = game_def.name.to_lowercase();
+
+        // Check if the directory path contains the game name or id
+        let dir_str = dir.to_string_lossy().to_lowercase();
+        let folder_name = dir
+            .file_name()
+            .map(|n| n.to_string_lossy().to_lowercase())
+            .unwrap_or_default();
+
+        let path_matches = dir_str.contains(&name_lower)
+            || folder_name.contains(&name_lower)
+            || folder_name.contains(&id);
+
+        if !path_matches {
+            return None;
+        }
+
+        // If path matches, return the first exe or one matching the id
         for e in &exes {
             let stem = Path::new(e)
                 .file_stem()
@@ -1687,14 +1747,12 @@ impl GameDetector {
                 return Some(e.clone());
             }
         }
-        if id == "stardewvalley" {
-            for e in &exes {
-                let el = e.to_lowercase();
-                if el.contains("stardew") {
-                    return Some(e.clone());
-                }
-            }
+
+        // Return first exe if folder name matches
+        if exes.len() == 1 {
+            return Some(exes[0].clone());
         }
+
         None
     }
 

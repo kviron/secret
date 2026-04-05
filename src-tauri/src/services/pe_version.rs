@@ -63,13 +63,8 @@ mod imp {
                 return None;
             }
             let mut data = vec![0u8; size as usize];
-            GetFileVersionInfoW(
-                PCWSTR(wide.as_ptr()),
-                None,
-                size,
-                data.as_mut_ptr().cast(),
-            )
-            .ok()?;
+            GetFileVersionInfoW(PCWSTR(wide.as_ptr()), None, size, data.as_mut_ptr().cast())
+                .ok()?;
 
             let trans_key = to_wide_null("\\VarFileInfo\\Translation");
             let mut trans_ptr: *mut c_void = ptr::null_mut();
