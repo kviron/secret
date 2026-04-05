@@ -49,6 +49,17 @@
 
 ---
 
+## UI: Games Library (dashboard)
+
+The **Games Library** route (`src/pages/dashboard/index.tsx`) lists detected games from the SQLite-backed store. Game cards show:
+
+- **Cover image**: For Steam titles, the default art URL is built from `details.steamAppId` using Steam’s standard **header** asset (`header.jpg`, aspect ratio **460:215**). Optional `details.logo` overrides with any `https` URL. Implementation: `src/shared/lib/steam-art.ts`, styles in `src/index.css` (`.game-card-header`, `.game-card-art`).
+- **State**: `entities/game` store (`loadGames`, detection events from `features/detect-games`).
+
+Serialization for `invoke('get_games')` and related commands must expose camelCase JSON so the UI can read `supportedModTypes`, `modSupport`, etc. — see MODELS.md.
+
+---
+
 ## Module Relationships
 
 ```

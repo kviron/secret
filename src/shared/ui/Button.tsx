@@ -8,17 +8,28 @@ interface ButtonProps {
   size?: 'sm' | 'md' | 'lg';
   children: JSX.Element;
   class?: string;
+  title?: string;
 }
 
 export const Button: Component<ButtonProps> = (props) => {
-  const [local, others] = splitProps(props, ['class', 'variant', 'size', 'isLoading', 'children']);
+  const [local, others] = splitProps(props, [
+    'class',
+    'variant',
+    'size',
+    'isLoading',
+    'children',
+    'title',
+    'disabled',
+  ]);
   const variant = local.variant ?? 'primary';
   const size = local.size ?? 'md';
   
   return (
     <button
+      type="button"
       class={`btn btn-${variant} btn-${size} ${local.isLoading ? 'btn-loading' : ''} ${local.class ?? ''}`}
-      disabled={local.isLoading || props.disabled}
+      disabled={local.isLoading || local.disabled}
+      title={local.title}
       {...others}
     >
       {local.isLoading ? (

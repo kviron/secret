@@ -405,16 +405,19 @@ CREATE INDEX idx_masterlist_game ON masterlist(gameId);
 ```
 
 ### details (games table)
+
+JSON object persisted as text. **New writes** follow the same shape as the TypeScript `GameDetails` type (**camelCase** keys), matching `serde` output from `src-tauri/src/models.rs`. Older rows may still contain **snake_case** keys (e.g. `steam_app_id`); deserialization uses field aliases so both forms load correctly.
+
+`logo` may be `null`, a relative asset name, or an **absolute `https` URL** used by the Games Library card when set (overrides the default Steam header image).
+
 ```json
 {
   "steamAppId": 72850,
   "gogId": null,
   "epicAppId": null,
-  "logo": "gameart.jpg",
+  "logo": null,
   "requiredFiles": ["TESV.exe", "Skyrim.exe"],
-  "environment": {
-    "SteamAPPId": "72850"
-  }
+  "environment": {}
 }
 ```
 

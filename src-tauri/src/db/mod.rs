@@ -3,7 +3,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
-use crate::models::{DeploymentState, Game, GameLauncher, Mod, ModFile};
+use crate::models::{DeploymentState, Game, GameLauncher, Mod, ModFile, ModSupportLevel};
 
 const MIGRATION_001: &str = include_str!("migrations/001_initial_schema.sql");
 
@@ -48,6 +48,10 @@ impl Database {
                 (
                     "details",
                     "ALTER TABLE games ADD COLUMN details TEXT DEFAULT '{}'",
+                ),
+                (
+                    "mod_support",
+                    "ALTER TABLE games ADD COLUMN mod_support TEXT DEFAULT 'none'",
                 ),
             ],
         )?;
@@ -119,12 +123,25 @@ impl Database {
     fn parse_launcher(s: &str) -> GameLauncher {
         match s {
             "steam" => GameLauncher::Steam,
-            "gog" => GameLauncher::GOG,
+            "gog" => GameLauncher::Gog,
             "epic" => GameLauncher::Epic,
             "xbox" => GameLauncher::Xbox,
             "origin" => GameLauncher::Origin,
+            "ubisoft" => GameLauncher::Ubisoft,
+            "battlenet" => GameLauncher::Battlenet,
+            "amazon" => GameLauncher::Amazon,
+            "microsoftstore" => GameLauncher::MicrosoftStore,
             "manual" => GameLauncher::Manual,
             _ => GameLauncher::Steam,
+        }
+    }
+
+    fn parse_mod_support(s: &str) -> ModSupportLevel {
+        match s {
+            "full" => ModSupportLevel::Full,
+            "partial" => ModSupportLevel::Partial,
+            "none" => ModSupportLevel::None,
+            _ => ModSupportLevel::None,
         }
     }
 
@@ -136,11 +153,12 @@ impl Database {
         let details_json = serde_json::to_string(&game.details).map_err(|e| e.to_string())?;
         let mod_types_json =
             serde_json::to_string(&game.supported_mod_types).map_err(|e| e.to_string())?;
+        let mod_support_str = game.mod_support.as_str();
 
         conn.execute(
             "INSERT OR REPLACE INTO games 
-             (id, name, install_path, support_path, launcher, extension_id, supported_mod_types, merge_mods, details, created_at, updated_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+             (id, name, install_path, support_path, launcher, extension_id, supported_mod_types, merge_mods, mod_support, details, created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
             params![
                 game.id,
                 game.name,
@@ -150,6 +168,7 @@ impl Database {
                 game.extension_id,
                 mod_types_json,
                 if game.merge_mods { 1 } else { 0 },
+                mod_support_str,
                 details_json,
                 game.created_at,
                 game.updated_at,
@@ -164,28 +183,33 @@ impl Database {
         let mut stmt = conn
             .prepare(
                 "SELECT id, name, install_path, support_path, launcher, 
-                        extension_id, supported_mod_types, merge_mods, details, created_at, updated_at 
+                        extension_id, supported_mod_types, merge_mods, mod_support, details, created_at, updated_at 
                  FROM games ORDER BY name",
             )
             .map_err(|e| e.to_string())?;
         let games = stmt
             .query_map([], |row| {
-                let details_json: String = row.get(8)?;
+                let details_json: String = row.get(9)?;
                 let mod_types_json: String = row.get(6)?;
                 let launcher_str: String = row.get(4)?;
+                let mod_support_str: String = row.get(8)?;
 
+                let install_path = PathBuf::from(row.get::<_, String>(2)?);
+                let install_path_missing = !install_path.exists();
                 Ok(Game {
                     id: row.get(0)?,
                     name: row.get(1)?,
-                    install_path: PathBuf::from(row.get::<_, String>(2)?),
+                    install_path,
                     support_path: PathBuf::from(row.get::<_, String>(3)?),
+                    install_path_missing,
                     launcher: Database::parse_launcher(&launcher_str),
                     extension_id: row.get(5)?,
                     supported_mod_types: serde_json::from_str(&mod_types_json).unwrap_or_default(),
                     merge_mods: row.get::<_, i32>(7)? == 1,
+                    mod_support: Database::parse_mod_support(&mod_support_str),
                     details: serde_json::from_str(&details_json).unwrap_or_default(),
-                    created_at: row.get(9)?,
-                    updated_at: row.get(10)?,
+                    created_at: row.get(10)?,
+                    updated_at: row.get(11)?,
                 })
             })
             .map_err(|e| e.to_string())?;
@@ -199,28 +223,33 @@ impl Database {
         let mut stmt = conn
             .prepare(
                 "SELECT id, name, install_path, support_path, launcher, 
-                        extension_id, supported_mod_types, merge_mods, details, created_at, updated_at 
+                        extension_id, supported_mod_types, merge_mods, mod_support, details, created_at, updated_at 
                  FROM games WHERE id = ?1",
             )
             .map_err(|e| e.to_string())?;
         let game = stmt
             .query_row(params![id], |row| {
-                let details_json: String = row.get(8)?;
+                let details_json: String = row.get(9)?;
                 let mod_types_json: String = row.get(6)?;
                 let launcher_str: String = row.get(4)?;
+                let mod_support_str: String = row.get(8)?;
 
+                let install_path = PathBuf::from(row.get::<_, String>(2)?);
+                let install_path_missing = !install_path.exists();
                 Ok(Game {
                     id: row.get(0)?,
                     name: row.get(1)?,
-                    install_path: PathBuf::from(row.get::<_, String>(2)?),
+                    install_path,
                     support_path: PathBuf::from(row.get::<_, String>(3)?),
+                    install_path_missing,
                     launcher: Database::parse_launcher(&launcher_str),
                     extension_id: row.get(5)?,
                     supported_mod_types: serde_json::from_str(&mod_types_json).unwrap_or_default(),
                     merge_mods: row.get::<_, i32>(7)? == 1,
+                    mod_support: Database::parse_mod_support(&mod_support_str),
                     details: serde_json::from_str(&details_json).unwrap_or_default(),
-                    created_at: row.get(9)?,
-                    updated_at: row.get(10)?,
+                    created_at: row.get(10)?,
+                    updated_at: row.get(11)?,
                 })
             })
             .optional()
@@ -233,6 +262,18 @@ impl Database {
         conn.execute("DELETE FROM games WHERE id = ?1", params![id])
             .map_err(|e| e.to_string())?;
         Ok(())
+    }
+
+    pub fn count_mods_for_game(&self, game_id: &str) -> Result<usize, String> {
+        let conn = self.conn.lock().map_err(|e| e.to_string())?;
+        let n: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM mods WHERE game_id = ?1",
+                params![game_id],
+                |row| row.get(0),
+            )
+            .map_err(|e| e.to_string())?;
+        Ok(n as usize)
     }
 
     // === Mods ===

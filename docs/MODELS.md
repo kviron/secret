@@ -2,62 +2,99 @@
 
 ## Overview
 
-Complete type definitions for all data structures in the system. Types are defined in both Rust (backend) and TypeScript (frontend) with identical semantics.
+Complete type definitions for all data structures in the system. Types are defined in both Rust (backend) and TypeScript (frontend) with identical **semantics**. Wire format over Tauri is documented below.
+
+## JSON over Tauri IPC (Rust ↔ TypeScript)
+
+**Source of truth**: `src-tauri/src/models.rs`, `src/shared/types.ts`.
+
+| Rule | Details |
+|------|---------|
+| Struct fields in Rust source | `snake_case` (`install_path`, `supported_mod_types`, `mod_support`, …) |
+| JSON in `invoke` / events / `register_game` | **camelCase** keys via `#[serde(rename_all = "camelCase")]` on structs (`installPath`, `supportedModTypes`, `modSupport`, …) |
+| `GameLauncher`, `ModSupportLevel` in JSON | **lowercase strings** (`"steam"`, `"none"`, `"full"`, …) via `#[serde(rename_all = "lowercase")]` on the enums |
+| `details` column in SQLite | JSON blob; new writes use camelCase keys. Older rows may still use snake_case keys in JSON — `GameDetails` uses `#[serde(alias = "...")]` on selected fields so both deserialize correctly |
+
+**Why this matters**: The frontend expects camelCase (`game.supportedModTypes`, `game.details.steamAppId`). If serde did not rename fields, properties would be `undefined` at runtime and UI code would throw (e.g. reading `.length`).
+
+**Persistence**: The database layer maps columns with SQL `snake_case` names; full `Game` rows are built in Rust — JSON serialization rules apply when data is sent to the UI, not necessarily to raw SQL column names.
+
+---
 
 ## Game
 
-### Rust
+### Rust (implementation shape in `models.rs`)
 
 ```rust
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]   // JSON for Tauri ↔ TS
 pub struct Game {
-    pub id: String,                    // Unique game ID (e.g., "skyrim", "fallout4")
-    pub name: String,                  // Display name (e.g., "The Elder Scrolls V: Skyrim")
-    pub installPath: PathBuf,          // Path to game executable directory
-    pub supportPath: PathBuf,         // Path to game Data folder
-    pub launcher: GameLauncher,        // Launcher type (Steam, GOG, Epic, etc.)
-    pub extensionId: Option<String>,   // Associated extension ID
-    pub supportedModTypes: Vec<ModType>, // List of supported mod types
-    pub mergeMods: bool,               // Whether mods should be merged in VFS
-    pub details: GameDetails,          // Additional game-specific details
-    pub createdAt: DateTime<Utc>,      // When game was first discovered
-    pub updatedAt: DateTime<Utc>,      // Last modification time
+    pub id: String,
+    pub name: String,
+    pub install_path: PathBuf,         // JSON: "installPath"
+    pub support_path: PathBuf,         // JSON: "supportPath"
+    pub launcher: GameLauncher,        // JSON: "launcher" → "steam" | ...
+    pub extension_id: Option<String>,
+    pub supported_mod_types: Vec<String>, // JSON: "supportedModTypes"
+    pub merge_mods: bool,
+    pub mod_support: ModSupportLevel,  // JSON: "modSupport" → "none" | "partial" | "full"
+    pub details: GameDetails,
+    pub created_at: String,            // JSON: "createdAt" (RFC 3339)
+    pub updated_at: String,            // JSON: "updatedAt"
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
 pub struct GameDetails {
-    pub steamAppId: Option<u32>,       // Steam application ID
-    pub gogId: Option<String>,         // GOG galaxy ID
-    pub epicAppId: Option<String>,     // Epic games launcher ID
-    pub logo: Option<String>,          // Game logo asset name
-    pub requiredFiles: Vec<String>,    // Files that indicate valid installation
-    pub environment: HashMap<String, String>, // Environment variables for launch
+    pub steam_app_id: Option<u32>,     // JSON: "steamAppId"; alias "steam_app_id" for legacy DB JSON
+    pub gog_id: Option<String>,
+    pub epic_app_id: Option<String>,
+    pub logo: Option<String>,          // Optional absolute https URL for card art (overrides Steam default)
+    pub required_files: Vec<String>,
+    pub environment: HashMap<String, String>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "lowercase")]
 pub enum GameLauncher {
     Steam,
-    GOG,
+    Gog,
     Epic,
     Xbox,
     Origin,
-    Manual,    // User-specified path
+    Ubisoft,
+    Battlenet,
+    Amazon,
+    MicrosoftStore,
+    Manual,
 }
 
 impl GameLauncher {
     pub fn as_str(&self) -> &'static str {
         match self {
             GameLauncher::Steam => "steam",
-            GameLauncher::GOG => "gog",
+            GameLauncher::Gog => "gog",
             GameLauncher::Epic => "epic",
             GameLauncher::Xbox => "xbox",
             GameLauncher::Origin => "origin",
+            GameLauncher::Ubisoft => "ubisoft",
+            GameLauncher::Battlenet => "battlenet",
+            GameLauncher::Amazon => "amazon",
+            GameLauncher::MicrosoftStore => "microsoftstore",
             GameLauncher::Manual => "manual",
         }
     }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum ModSupportLevel {
+    None,
+    Partial,
+    Full,
 }
 ```
 
@@ -75,10 +112,13 @@ export interface Game {
   extensionId: string | null;
   supportedModTypes: ModType[];
   mergeMods: boolean;
+  modSupport: ModSupportLevel;
   details: GameDetails;
   createdAt: string;  // ISO 8601
   updatedAt: string;  // ISO 8601
 }
+
+export type ModSupportLevel = 'full' | 'partial' | 'none';
 
 export interface GameDetails {
   steamAppId: number | null;
@@ -89,12 +129,16 @@ export interface GameDetails {
   environment: Record<string, string>;
 }
 
-export type GameLauncher = 
-  | 'steam' 
-  | 'gog' 
-  | 'epic' 
-  | 'xbox' 
-  | 'origin' 
+export type GameLauncher =
+  | 'steam'
+  | 'gog'
+  | 'epic'
+  | 'xbox'
+  | 'origin'
+  | 'ubisoft'
+  | 'battlenet'
+  | 'amazon'
+  | 'microsoftstore'
   | 'manual';
 
 export type ModType = 
@@ -108,6 +152,15 @@ export type ModType =
   | 'scriptExtender' 
   | 'modPlugin';
 ```
+
+### Games Library card (dashboard)
+
+| Item | Location / behavior |
+|------|---------------------|
+| Page | `src/pages/dashboard/index.tsx` — `GameCardCover` renders header art + mod-support badge |
+| Steam default art | `src/shared/lib/steam-art.ts` — `steamHeaderImageUrl(appId)` → `…/steam/apps/{appId}/header.jpg` (Steam standard header capsule **~460×215**, ratio **460:215**) |
+| Custom art | `game.details.logo` — optional `https://…` URL; takes precedence over Steam header |
+| Layout | `src/index.css` — `.game-card-header` uses `aspect-ratio: 460 / 215`; image uses `object-fit: cover`; on load error, letter placeholder is shown |
 
 ---
 

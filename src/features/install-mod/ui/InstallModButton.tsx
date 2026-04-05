@@ -6,6 +6,7 @@ import { open } from '@tauri-apps/plugin-dialog';
 interface InstallModButtonProps {
   gameId: string;
   onInstalled?: () => void;
+  disabled?: boolean;
 }
 
 export const InstallModButton: Component<InstallModButtonProps> = (props) => {
@@ -13,6 +14,9 @@ export const InstallModButton: Component<InstallModButtonProps> = (props) => {
   const { addMod } = useModStore();
 
   const handleClick = async () => {
+    if (props.disabled) {
+      return;
+    }
     const selected = await open({
       multiple: false,
       filters: [{ name: 'Archives', extensions: ['zip', '7z', 'rar'] }],
@@ -34,7 +38,14 @@ export const InstallModButton: Component<InstallModButtonProps> = (props) => {
   };
 
   return (
-    <Button onClick={handleClick} isLoading={isInstalling()} variant="primary" size="md">
+    <Button
+      onClick={handleClick}
+      isLoading={isInstalling()}
+      variant="primary"
+      size="md"
+      disabled={props.disabled}
+      title={props.disabled ? 'Сначала укажите папку установки игры' : undefined}
+    >
       Install Mod
     </Button>
   );

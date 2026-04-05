@@ -1,8 +1,8 @@
-use std::fs;
 use chrono::Utc;
+use std::fs;
 
 use crate::db::Database;
-use crate::models::{DeploymentState, DeployedFile};
+use crate::models::{DeployedFile, DeploymentState};
 
 pub struct DeployManager {
     db: Database,
@@ -36,14 +36,12 @@ impl DeployManager {
             let target = game_path.join(&file.path);
 
             if let Some(parent) = target.parent() {
-                fs::create_dir_all(parent).map_err(|e| {
-                    format!("Failed to create directory {:?}: {}", parent, e)
-                })?;
+                fs::create_dir_all(parent)
+                    .map_err(|e| format!("Failed to create directory {:?}: {}", parent, e))?;
             }
 
-            fs::copy(&source, &target).map_err(|e| {
-                format!("Failed to copy {:?} to {:?}: {}", source, target, e)
-            })?;
+            fs::copy(&source, &target)
+                .map_err(|e| format!("Failed to copy {:?} to {:?}: {}", source, target, e))?;
 
             deployed_files.push(DeployedFile {
                 source: file.path.clone(),

@@ -4,6 +4,12 @@
 
 Complete reference for Tauri commands (invoke) and events (listen/emit).
 
+### IPC JSON field names
+
+All structured payloads (`Game`, `Mod`, `DetectionProgress`, `GameDetectionError`, `DeploymentState`, …) use **camelCase** property names in JSON when crossing the Tauri boundary, matching TypeScript types in `src/shared/types.ts`. Rust structs keep `snake_case` field names in source; `serde` attributes on `src-tauri/src/models.rs` perform the mapping. Enum values for `GameLauncher` and `ModSupportLevel` are **lowercase** strings (`"steam"`, `"ubisoft"`, `"microsoftstore"`, `"none"`, …).
+
+See **MODELS.md → JSON over Tauri IPC** for the full rules and database JSON compatibility notes.
+
 ---
 
 ## Commands

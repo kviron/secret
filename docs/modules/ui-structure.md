@@ -101,11 +101,7 @@ src/
 │
 ├── pages/                  # Route-level (pages/**/index.ts + ui/**)
 │   ├── dashboard/
-│   │   ├── index.ts      # Public API
-│   │   └── ui/
-│   │       ├── Dashboard.tsx
-│   │       ├── GameCards.tsx
-│   │       └── QuickActions.tsx
+│   │   └── index.tsx       # Games Library: grid of cards, GameCardCover (Steam header art)
 │   ├── games/
 │   ├── game-detail/
 │   │   ├── model/        # Page-specific stores
@@ -164,6 +160,14 @@ src/
     └── config/
         └── routes.ts
 ```
+
+## Games Library (`pages/dashboard`)
+
+| Concern | Detail |
+|---------|--------|
+| Entry | `src/pages/dashboard/index.tsx` — grid of game cards, `GameCardCover` for the top banner |
+| Images | `src/shared/lib/steam-art.ts` — `steamHeaderImageUrl(appId)` loads Steam **header** art (`header.jpg`, ~460×215). Card header uses CSS `aspect-ratio: 460 / 215` in `src/index.css`. Optional `game.details.logo` overrides with a full `https` URL |
+| Data | `entities/game` store — `invoke('get_games')` / detection events; payloads must be camelCase JSON (see MODELS.md) |
 
 ## Routing
 

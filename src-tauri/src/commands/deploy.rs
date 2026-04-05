@@ -1,6 +1,6 @@
-use tauri::State;
-use crate::AppState;
 use crate::models::DeploymentState;
+use crate::AppState;
+use tauri::State;
 
 #[tauri::command]
 pub async fn deploy_mod(
@@ -11,10 +11,7 @@ pub async fn deploy_mod(
 }
 
 #[tauri::command]
-pub async fn undeploy_mod(
-    mod_id: String,
-    state: State<'_, AppState>,
-) -> Result<(), String> {
+pub async fn undeploy_mod(mod_id: String, state: State<'_, AppState>) -> Result<(), String> {
     state.deployer.undeploy_mod(&mod_id).await
 }
 

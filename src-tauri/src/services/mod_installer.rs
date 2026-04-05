@@ -1,11 +1,11 @@
-use std::path::{Path, PathBuf};
 use std::fs::{self, File};
 use std::io;
-use zip::ZipArchive;
+use std::path::{Path, PathBuf};
 use uuid::Uuid;
+use zip::ZipArchive;
 
-use crate::models::{Mod, ModFile};
 use crate::db::Database;
+use crate::models::{Mod, ModFile};
 
 pub struct ModInstaller {
     staging_path: PathBuf,
@@ -29,7 +29,8 @@ impl ModInstaller {
 
         self.extract_archive(archive_path, &staging_path)?;
 
-        let name = self.extract_mod_name(&staging_path)
+        let name = self
+            .extract_mod_name(&staging_path)
             .unwrap_or_else(|| "Unknown Mod".to_string());
 
         let version = None;
@@ -62,7 +63,8 @@ impl ModInstaller {
     }
 
     pub async fn uninstall(&self, db: &Database, mod_id: &str) -> Result<(), String> {
-        let mod_ = db.find_mod(mod_id)?
+        let mod_ = db
+            .find_mod(mod_id)?
             .ok_or_else(|| format!("Mod not found: {}", mod_id))?;
 
         if mod_.install_path.exists() {
@@ -76,13 +78,13 @@ impl ModInstaller {
     }
 
     fn extract_archive(&self, archive_path: &Path, dest: &Path) -> Result<(), String> {
-        let file = File::open(archive_path)
-            .map_err(|e| format!("Failed to open archive: {}", e))?;
-        let mut archive = ZipArchive::new(file)
-            .map_err(|e| format!("Invalid zip file: {}", e))?;
+        let file =
+            File::open(archive_path).map_err(|e| format!("Failed to open archive: {}", e))?;
+        let mut archive = ZipArchive::new(file).map_err(|e| format!("Invalid zip file: {}", e))?;
 
         for i in 0..archive.len() {
-            let mut file = archive.by_index(i)
+            let mut file = archive
+                .by_index(i)
                 .map_err(|e| format!("Failed to read archive entry: {}", e))?;
 
             let outpath = match file.enclosed_name() {
@@ -96,8 +98,8 @@ impl ModInstaller {
                 if let Some(p) = outpath.parent() {
                     fs::create_dir_all(p).map_err(|e| e.to_string())?;
                 }
-                let mut outfile = File::create(&outpath)
-                    .map_err(|e| format!("Failed to create file: {}", e))?;
+                let mut outfile =
+                    File::create(&outpath).map_err(|e| format!("Failed to create file: {}", e))?;
                 io::copy(&mut file, &mut outfile)
                     .map_err(|e| format!("Failed to write file: {}", e))?;
             }
@@ -118,16 +120,13 @@ impl ModInstaller {
             }
         }
 
-        staging_path.file_name()
+        staging_path
+            .file_name()
             .and_then(|n| n.to_str())
             .map(String::from)
     }
 
-    fn collect_files(
-        &self,
-        base: &Path,
-        current: &Path,
-    ) -> Result<Vec<(String, u64)>, String> {
+    fn collect_files(&self, base: &Path, current: &Path) -> Result<Vec<(String, u64)>, String> {
         let mut files = Vec::new();
 
         for entry in fs::read_dir(current).map_err(|e| e.to_string())? {
@@ -137,7 +136,8 @@ impl ModInstaller {
             if path.is_dir() {
                 files.extend(self.collect_files(base, &path)?);
             } else if path.is_file() {
-                let relative = path.strip_prefix(base)
+                let relative = path
+                    .strip_prefix(base)
                     .map(|p| p.to_string_lossy().to_string())
                     .unwrap_or_default();
                 let size = entry.metadata().map(|m| m.len()).unwrap_or(0);

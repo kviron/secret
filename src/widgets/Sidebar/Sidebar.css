@@ -4,7 +4,7 @@
   border-right: 1px solid var(--border-default);
   display: flex;
   flex-direction: column;
-  padding: var(--space-lg);
+  padding: var(--space-sm) var(--space-sm);
   position: fixed;
   top: 0;
   left: 0;
@@ -16,17 +16,17 @@
 
 .sidebar-collapsed {
   width: var(--sidebar-collapsed-width);
-  padding: var(--space-md);
+  padding: var(--space-xs);
 }
 
 .sidebar-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--space-md) 0;
-  margin-bottom: var(--space-xl);
+  padding: var(--space-xs) var(--space-xs);
+  margin-bottom: var(--space-sm);
   border-bottom: 1px solid var(--border-default);
-  min-height: 56px;
+  min-height: 44px;
 }
 
 .sidebar-collapsed .sidebar-header {
@@ -54,7 +54,7 @@
 }
 
 .brand-text {
-  font-size: 20px;
+  font-size: 17px;
   font-weight: 700;
   letter-spacing: -0.02em;
   background: linear-gradient(135deg, var(--accent-primary), var(--accent-hover));
@@ -106,7 +106,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-sm);
-  padding: var(--space-sm) var(--space-md);
+  padding: 6px 8px;
   border-radius: var(--radius-md);
   color: var(--text-secondary);
   text-decoration: none;

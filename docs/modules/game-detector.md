@@ -4,145 +4,121 @@
 
 Обнаружение установленных игр на компьютере пользователя.
 
-## Pantheon Comparison
+## Implementation status
 
-Pantheon uses `gamemode_management` extension with `GameStore` integration for game discovery. Games are discovered via:
-1. Steam registry / Steam API
-2. GOG registry / Galaxy API  
-3. Epic Games launcher database
-4. Xbox Game Pass / Microsoft Store
-5. Manual path detection
+| Area | Status | Notes |
+|------|--------|--------|
+| Steam (Windows) | **Implemented** | `HKCU\Software\Valve\Steam` → `SteamPath`, `appmanifest_*.acf`, `libraryfolders.vdf`, `KNOWN_GAMES`, generic `steam_<appid>` |
+| Steam (Linux) | **Implemented** | `~/.steam/steam` and `~/.local/share/Steam` roots (same manifest scan) |
+| GOG (Windows) | **Implemented** | `HKLM\SOFTWARE\WOW6432Node\GOG.com\Games` (and non-WOW64 fallback): match install dir against `KNOWN_GAMES` executables |
+| GOG Galaxy (Windows) | **Implemented** | `%LOCALAPPDATA%\GOG.com\Galaxy\storage\galaxy-2.0.db` — `DbGame.installationPath`; дубликаты по `Game.id` отсекаются после реестра |
+| Epic (Windows) | **Implemented** | `%ProgramData%\Epic\EpicGamesLauncher\Data\Manifests\*.item` JSON → `InstallLocation`, same matching |
+| EA app / Origin (Windows) | **Implemented** | `HKLM\SOFTWARE\...\EA Games\<key>\Install Dir` (или `InstallDir`) |
+| Ubisoft Connect (Windows) | **Implemented** | `HKLM\SOFTWARE\WOW6432Node\Ubisoft\Launcher\Installs\<id>\InstallDir` |
+| Battle.net (Windows) | **Implemented** | `%ProgramData%\Battle.net\Agent\product.db` (SQLite, таблица `ProductInstall`) |
+| Amazon Games (Windows) | **Implemented** | `%LOCALAPPDATA%\Amazon Games\Data\**\*.json` — поля вроде `installDirectory` / `InstallLocation` |
+| Xbox / PC Game Pass | **Implemented (best-effort)** | `HKLM\SOFTWARE\Microsoft\Windows\XboxGameExport` |
+| Microsoft Store (Windows) | **Implemented (best-effort)** | Дополнительно: `HKLM\...\Uninstall` — `InstallLocation` для путей, не попавших в другие источники (без полного доступа к WindowsApps/UWP API) |
+| Heroic (Linux) | **Implemented** | `~/.config/heroic/**/*.json` — абсолютные пути каталогов в JSON; `launcher` по полям `runner` / `store` |
+| Lutris (Linux) | **Implemented** | `~/.local/share/lutris/games/*.yml` — `game_path:` / `exe:`; `runner:` для угадывания лаунчера |
+| Manual folder (`scan_custom_path`) | **Implemented** | Known games by exe (через индекс путей); optional generic game if a single `.exe` is found and no known match |
+| Extension manifests / `extension_id` | **Planned** | `extension_id` remains `None` until extension system exists |
+| GOG Galaxy API / Steam Web API | **Not planned (v1)** | Local filesystem and registry only |
 
-## Supported Platforms
+## Target architecture (roadmap)
 
-| Platform | Detection Method | Pantheon Equivalent |
-|----------|-----------------|-------------------|
-| Steam | Steam registry (`HKCU\Software\Valve\Steam\Apps`), Steam API | `gameinfo-steam` |
-| GOG | GOG registry (`HKLM\SOFTWARE\GOG.com\Games`), Galaxy API | `gamestore-gog` |
-| Epic | Epic manifest files in AppData | `gamestore-epic` |
-| Xbox/Game Pass | Windows registry, Xbox app detection | `gamestore-xbox` |
-| Manual | User-specified path | Direct path input |
+Покрытие основных локальных источников (в духе multi-store менеджеров вроде Vortex); код Vortex (GPL) не копируется — только собственная реализация.
+
+1. Steam registry / local manifests (done)
+2. GOG registry + Galaxy DB (done)
+3. Epic Games Launcher manifests (done)
+4. EA, Ubisoft, Battle.net, Amazon (done)
+5. Xbox / Microsoft Store partial (done)
+6. Linux Heroic / Lutris (done)
+7. Manual path detection (done)
+
+## Supported Platforms (reference)
+
+| Platform | Typical detection method |
+|----------|-------------------------|
+| Steam | `SteamPath`, `libraryfolders.vdf`, `appmanifest_*.acf` |
+| GOG | Registry, Galaxy `galaxy-2.0.db` |
+| Epic | `Manifests\*.item` (JSON) |
+| EA / Origin | Registry `EA Games` |
+| Ubisoft | Registry `Ubisoft\Launcher\Installs` |
+| Battle.net | `product.db` (SQLite) |
+| Amazon | JSON под `Amazon Games\Data` |
+| Xbox/Game Pass | Registry `XboxGameExport` |
+| Microsoft Store | Best-effort: `Uninstall` + InstallLocation |
+| Heroic / Lutris | JSON / YAML под `~/.config`, `~/.local/share` |
+| Manual | User-selected folder |
 
 ## Data Model
 
-```rust
-struct Game {
-    id: String,                    // Unique identifier (e.g., "skyrim", "fallout4")
-    name: String,                  // Display name
-    install_path: PathBuf,         // Game executable location
-    support_path: PathBuf,         // Mod directory (Data folder, Mods folder, etc.)
-    launcher: Launcher,           // Steam/GOG/Epic/Xbox/Manual
-    extension_id: String,         // Which extension handles this game
-    supported_mod_types: Vec<String>,  // e.g., ["fomod", "bepinex", "bsa"]
-    merge_mods: bool,             // Games like Skyrim that merge mod content
-}
+See [MODELS.md](../MODELS.md) — `Game`, `GameDetails`, `GameLauncher` in `src-tauri/src/models.rs`.
 
-enum Launcher {
-    Steam,
-    GOG,
-    Epic,
-    Xbox,
-    Manual,
-}
-```
+Дополнительные метаданные источника (ключи реестра, `heroic`/`lutris` и т.д.) могут попадать в `GameDetails.environment`.
 
-## Detection Flow
+## Detection flow (actual pipeline)
 
-```
-1. Scan Steam registry
-       │
-       ▼
-   Found Steam IDs ──────► Match against known games DB
-       │                         │
-       ▼                         │
-2. Scan GOG registry              │
-       │                         │
-       ▼                         │
-   Found GOG IDs ───────────────►│
-       │                         │
-       ▼                         ▼
-3. Scan Epic manifests ◄──────────┘
-       │
-       ▼
-4. Scan Xbox/Game Pass ◄──────────┘
-       │
-       ▼
-5. Combine all discoveries
-       │
-       ▼
-6. Return list of detected games
-```
+`GameDetector::detect_games` runs, in order:
 
-## Pantheon Implementation
+**Windows**
 
-```rust
-// Game discovery command
-#[tauri::command]
-pub async fn detect_games() -> Result<Vec<Game>, String> {
-    let mut games = Vec::new();
-    
-    // Steam detection
-    games.extend(detect_steam_games().await?);
-    
-    // GOG detection  
-    games.extend(detect_gog_games().await?);
-    
-    // Epic detection
-    games.extend(detect_epic_games().await?);
-    
-    // Xbox detection
-    games.extend(detect_xbox_games().await?);
-    
-    Ok(games)
-}
+1. **Steam** — library roots → manifests → `KNOWN_GAMES` or generic `steam_<appid>` (with skip list for tool depots)
+2. **GOG** — registry → install paths → known-game exe match
+3. **GOG Galaxy** — SQLite paths → same match (`launcher`: `gog`, `environment.gog_source`: `galaxy_db`)
+4. **Epic** — manifest JSON → `InstallLocation` → match
+5. **EA / Origin** — EA Games registry → match (`launcher`: `origin`)
+6. **Ubisoft** — Ubisoft Connect registry → match
+7. **Battle.net** — `product.db` install paths → match
+8. **Amazon** — JSON manifests → match
+9. **Xbox** — `XboxGameExport` registry → match
+10. **Microsoft Store (best-effort)** — `Uninstall` hive scan (cap on keys) → match
 
-// Platform-specific detection
-async fn detect_steam_games() -> Result<Vec<Game>, String> { ... }
-async fn detect_gog_games() -> Result<Vec<Game>, String> { ... }
-async fn detect_epic_games() -> Result<Vec<Game>, String> { ... }
-```
+**Linux**
 
-## Game Extension Manifest (JSON)
+1. **Steam** — same manifest logic as Windows
+2. **Heroic** — JSON scan under `~/.config/heroic`
+3. **Lutris** — `.yml` game configs
 
-```json
-{
-    "id": "game-skyrimse",
-    "name": "The Elder Scrolls V: Skyrim Special Edition",
-    "extension_id": "gamebryo-skyrim",
-    "steam": {
-        "app_id": "489830",
-        "branch": "public"
-    },
-    "gog": {
-        "game_id": "1458055853"
-    },
-    "mod_types": [
-        { "id": "fomod", "priority": 100 },
-        { "id": "bsa", "priority": 90 },
-        { "id": "bepinex", "priority": 80 }
-    ],
-    "mod_paths": {
-        "default": "Data",
-        "modorganizer": "Mods"
-    },
-    "merge_mods": true,
-    "loot_metadata": "skyrim.yaml"
-}
-```
+Non-Windows: нет реестра Windows-лаунчеров; Epic/GOG на Linux часто через Heroic/Lutris, не через отдельные нативные сканеры.
+
+Results are **deduplicated by `Game.id`** (first wins).
+
+## Windows / Steam (details)
+
+**Module**: `src-tauri/src/services/game_detector.rs`
+
+| Step | Behavior |
+|------|----------|
+| Steam root | Registry `HKCU\Software\Valve\Steam`, value `SteamPath` |
+| Library roots | `steamapps` under Steam root + paths from `steamapps/libraryfolders.vdf` (парсер в модуле `steam_parse`) |
+| Installed apps | Parse `steamapps/appmanifest_<appid>.acf` → `installdir` |
+| Skip list | Tool/redistributable App IDs (e.g. Steamworks Shared) are skipped for generic registration |
+| Known games | `KNOWN_GAMES` — индекс относительных путей exe → ускорение сопоставления с каталогом |
+| Unknown Steam App ID | Registered as `steam_<appid>` if an executable is found and App ID not skipped |
+| Known game, exe mismatch | Fallback: single `.exe` in folder, or heuristics (e.g. Stardew) |
+
+Events: `game_detection_started`, `game_detection_progress`, `game_detected`, `game_detection_error`, `game_detection_completed`.
+
+## Public API (Rust)
+
+The Tauri command calls `GameDetector::detect_games(&detector, on_progress, on_error)` — a **synchronous** method taking progress/error callbacks. Все лаунчеры вызываются внутри `detect_games`; отдельных публичных команд на каждый магазин нет.
+
+## Game Extension Manifest (future)
+
+JSON manifests for per-game extensions remain a **planned** integration; see historical example in git history or MODULE_SPECS.
 
 ## Key Interactions
 
 | Module | Interaction |
-|--------|-------------|
-| `game-extension` | Loads game-specific detection logic |
-| `database` | Stores discovered games |
-| `mod-installer` | Uses game ID to determine mod staging path |
-| `deploy-manager` | Uses game support_path for deployment target |
-| `load-order-manager` | Uses game ID to load LOOT metadata |
+|--------|----------------|
+| `database` | `insert_or_update_game` after detection |
+| `mod-installer` / `deploy-manager` | Consume `Game.support_path` (future) |
 
 ## Notes
 
-- Game detection should be expandable via extensions
-- Each game should have a known "extension" that handles game-specific logic
-- Some games (Bethesda) have `merge_mods: true` which affects deployment strategy
-- Mod paths vary by game: `Data/` for Bethesda, `Mods/` for MO2-style, root for some games
+- Some Bethesda titles use `merge_mods: true` for deployment strategy.
+- Mod paths vary: `Data/`, `Mods/`, etc. — encoded in `KNOWN_GAMES.support_path_suffix`.
+- Полный перечень установок Microsoft Store / защищённых папок WindowsApps без WinRT API недоступен — см. best-effort ветку `Uninstall`.

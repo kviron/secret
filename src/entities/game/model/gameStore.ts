@@ -1,5 +1,6 @@
 import { createStore } from 'solid-js/store';
-import type { Game, DetectionProgress, GameDetectionError } from '@/shared/types';
+import type { Game, DetectionProgress, GameDetectionError, RemoveGameResult } from '@/shared/types';
+import { sortGamesByModSupport } from '@/shared/lib/game-support';
 import { gameApi } from '../api/gameApi';
 
 interface GameStoreState {
@@ -42,10 +43,10 @@ export const useGameStore = () => {
     unlistenDetected = await gameApi.onGameDetected((game) => {
       setState('games', (prev) => {
         const exists = prev.some((g) => g.id === game.id);
-        if (exists) {
-          return prev.map((g) => (g.id === game.id ? game : g));
-        }
-        return [...prev, game];
+        const next = exists
+          ? prev.map((g) => (g.id === game.id ? game : g))
+          : [...prev, game];
+        return sortGamesByModSupport(next);
       });
     });
 
@@ -72,7 +73,7 @@ export const useGameStore = () => {
     try {
       await setupListeners();
       const games = await gameApi.getGames();
-      setState('games', games);
+      setState('games', sortGamesByModSupport(games));
     } catch (err) {
       setState('error', String(err));
     } finally {
@@ -88,7 +89,7 @@ export const useGameStore = () => {
     try {
       await setupListeners();
       const games = await gameApi.detectGames();
-      setState('games', games);
+      setState('games', sortGamesByModSupport(games));
     } catch (err) {
       setState('error', String(err));
     } finally {
@@ -104,7 +105,7 @@ export const useGameStore = () => {
     try {
       await setupListeners();
       const games = await gameApi.scanCustomPath(path);
-      setState('games', games);
+      setState('games', sortGamesByModSupport(games));
     } catch (err) {
       setState('error', String(err));
     } finally {
@@ -120,6 +121,30 @@ export const useGameStore = () => {
     setState('detectionErrors', []);
   };
 
+  const refreshGame = async (gameId: string) => {
+    try {
+      const g = await gameApi.getGame(gameId);
+      if (!g) {
+        setState('games', (prev) => prev.filter((x) => x.id !== gameId));
+        return;
+      }
+      setState('games', (prev) => {
+        const idx = prev.findIndex((x) => x.id === gameId);
+        const next =
+          idx === -1 ? [...prev, g] : prev.map((x) => (x.id === gameId ? g : x));
+        return sortGamesByModSupport(next);
+      });
+    } catch (err) {
+      setState('error', String(err));
+    }
+  };
+
+  const removeGameFromLibrary = async (gameId: string): Promise<RemoveGameResult> => {
+    const result = await gameApi.removeGameFromLibrary(gameId);
+    setState('games', (prev) => prev.filter((g) => g.id !== gameId));
+    return result;
+  };
+
   return {
     state,
     loadGames,
@@ -128,5 +153,7 @@ export const useGameStore = () => {
     selectGame,
     clearDetectionErrors,
     cleanupListeners,
+    refreshGame,
+    removeGameFromLibrary,
   };
 };

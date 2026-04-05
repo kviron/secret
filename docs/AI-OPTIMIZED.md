@@ -9,7 +9,7 @@ This documentation is optimized for AI code generation. It provides complete, un
 ```
 docs/
 ├── AI-OPTIMIZED.md           # This file - Master index
-├── MODELS.md                 # Complete type definitions (Rust + TypeScript)
+├── MODELS.md                 # Complete type definitions + Tauri JSON (camelCase) rules
 ├── DATABASE_SCHEMA.md        # Full SQL DDL with migrations + indexes
 ├── MODULE_SPECS.md           # Complete module specifications
 ├── FLOWS.md                  # Step-by-step implementation flows
@@ -27,6 +27,7 @@ docs/
 ### 2. Read MODELS.md
 - Get complete type definitions
 - Understand all data structures in both Rust and TypeScript
+- Read **JSON over Tauri IPC** in MODELS.md before adding fields to `models.rs` / `shared/types.ts` (camelCase on the wire, enums lowercase)
 
 ### 3. Read DATABASE_SCHEMA.md
 - Get exact SQL DDL
@@ -42,6 +43,15 @@ docs/
 
 ### 6. Reference API_REFERENCE.md
 - Look up specific commands and events during implementation
+
+## Local development (npm)
+
+| Script | Purpose |
+|--------|---------|
+| `npm run dev` | Vite dev server (frontend only) |
+| `npm run tauri` | `tauri dev` — desktop app with backend (see `package.json`) |
+
+---
 
 ## Tech Stack
 
@@ -94,7 +104,7 @@ docs/
 ### Database
 1. Always use prepared statements
 2. Use transactions for multi-table operations
-3. Store JSON as TEXT with proper serialization
+3. Store JSON as TEXT with proper serialization (e.g. `games.details` should align with `GameDetails` — camelCase for new data; see MODELS.md)
 4. Track migrations in schema_migrations table
 
 ## Key Patterns
@@ -148,6 +158,7 @@ Before code is considered complete, ensure:
 - [ ] All flows from FLOWS.md are covered
 - [ ] All commands from API_REFERENCE.md are registered
 - [ ] Error handling returns `Result<T, String>`
+- [ ] New/changed Rust models that cross Tauri IPC use serde rules in `models.rs` so the UI receives camelCase JSON
 - [ ] Events are emitted for all state changes
 - [ ] No `any` types used (use `unknown` with type guards)
 - [ ] All async operations use tokio

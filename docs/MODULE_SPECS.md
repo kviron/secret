@@ -14,52 +14,77 @@ Complete specifications for all backend (Rust) and frontend (Solid.js) modules.
 
 **Location**: `src-tauri/src/services/game_detector.rs`
 
-**API**:
+**Public Rust API** (what the Tauri layer calls):
 
 ```rust
 pub struct GameDetector;
 
 impl GameDetector {
     pub fn new() -> Self;
-    
-    pub fn detect_games(&self) -> Result<Vec<Game>, String>;
-    
-    pub fn detect_steam_games(&self) -> Result<Vec<Game>, String>;
-    
-    pub fn detect_gog_games(&self) -> Result<Vec<Game>, String>;
-    
-    pub fn detect_epic_games(&self) -> Result<Vec<Game>, String>;
-    
-    pub fn detect_xbox_games(&self) -> Result<Vec<Game>, String>;
+
+    /// Runs the full detection pipeline (Steam → GOG → Epic → Xbox on Windows; Steam on Linux).
+    /// Progress and errors are reported via callbacks (used to emit Tauri events).
+    pub fn detect_games<F, E>(&self, on_progress: F, on_error: E) -> Vec<Game>
+    where
+        F: Fn(DetectionProgress) + Send + 'static,
+        E: Fn(GameDetectionError) + Send + 'static;
+
+    /// Scan a user-selected folder: try `KNOWN_GAMES` executables, then optional generic single-exe game.
+    pub fn scan_custom_path<F, E>(&self, path: &Path, on_progress: F, on_error: E) -> Vec<Game>
+    where
+        F: Fn(DetectionProgress) + Send + 'static,
+        E: Fn(GameDetectionError) + Send + 'static;
 }
 ```
 
-**Detection Methods**:
+Platform-specific helpers (`detect_steam_games`, GOG/Epic/Xbox scans) are **private** implementation details inside the same module.
 
-1. **Steam**: Scan `HKEY_LOCAL_MACHINE\Software\Valve\Steam` for Steam path, then `steamapps/libraryfolders.vdf` for game locations. Match against known Steam App IDs.
+**Detection Methods (implemented)**:
 
-2. **GOG**: Scan `HKEY_LOCAL_MACHINE\Software\GOG.com\Games` registry for game installations. Use GOG Galaxy manifests in `%APPDATA%\GOG.com\Galaxy\`.
+1. **Steam (Windows)**: `HKCU\Software\Valve\Steam` → `SteamPath`, `steamapps/appmanifest_*.acf`, `libraryfolders.vdf` (normalized + deduplicated paths), `KNOWN_GAMES` + generic `steam_<appid>`, skip-list for tool depots.
 
-3. **Epic**: Scan `%ProgramData%\Epic\EpicGamesLauncher\Data\Manifests` for Epic game manifests.
+2. **Steam (Linux)**: `~/.steam/steam` and `~/.local/share/Steam` — same manifest logic as Windows.
 
-4. **Xbox (Game Pass)**: Scan `HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\XboxGameExport` for Xbox PC games.
+3. **GOG (Windows)**: `HKLM\SOFTWARE\WOW6432Node\GOG.com\Games` (with fallback to `HKLM\SOFTWARE\GOG.com\Games`) — resolve install path from registry values, match against `KNOWN_GAMES` by executable paths.
+
+4. **GOG Galaxy (Windows)**: `%LOCALAPPDATA%\GOG.com\Galaxy\storage\galaxy-2.0.db` — `DbGame.installationPath`.
+
+5. **Epic (Windows)**: `%ProgramData%\Epic\EpicGamesLauncher\Data\Manifests\*.item` — JSON `InstallLocation`, match against `KNOWN_GAMES`.
+
+6. **EA / Origin (Windows)**: `HKLM\SOFTWARE\...\EA Games\*\Install Dir`.
+
+7. **Ubisoft Connect (Windows)**: `HKLM\SOFTWARE\WOW6432Node\Ubisoft\Launcher\Installs\*\InstallDir`.
+
+8. **Battle.net (Windows)**: `%ProgramData%\Battle.net\Agent\product.db` (SQLite).
+
+9. **Amazon Games (Windows)**: `%LOCALAPPDATA%\Amazon Games\Data\**\*.json`.
+
+10. **Xbox / PC Game Pass (Windows, best-effort)**: `HKLM\SOFTWARE\Microsoft\Windows\XboxGameExport` when present.
+
+11. **Microsoft Store (Windows, best-effort)**: `HKLM\...\Uninstall` — `InstallLocation` scan (capped).
+
+12. **Heroic (Linux)**: `~/.config/heroic/**/*.json`.
+
+13. **Lutris (Linux)**: `~/.local/share/lutris/games/*.yml`.
+
+**Planned / not in v1**:
+
+- Per-game **extension manifests** and non-`None` `extension_id` (ExtensionManager).
 
 **Game Registration Flow**:
 ```
-1. Scan all launcher locations
-2. Match discovered games against known game database
-3. Validate game files exist (requiredFiles check)
-4. Create Game entity with extension matching
-5. Return Vec<Game>
+1. Collect candidates per launcher (full pipeline; see docs/modules/game-detector.md)
+2. Match install folders against KNOWN_GAMES executables (and Steam App ID map); exe path index accelerates matching
+3. Deduplicate by Game.id
+4. Return Vec<Game> (Tauri command persists to SQLite)
 ```
 
 **Key Interactions**:
-- `ExtensionManager`: Get game extension for validation
-- `Database`: Store discovered games
+- `Database`: Store discovered games (`insert_or_update_game`)
 
 **Vortex Comparison**:
 - Vortex: `gamestore-steam/`, `gamestore-gog/`, `gamestore-origin/`
-- Pantheon: Unified `GameDetector` with launcher-specific strategies
+- Pantheon: Unified `GameDetector` with internal launcher passes
 
 ---
 

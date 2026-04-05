@@ -1,4 +1,16 @@
-export type GameLauncher = 'steam' | 'gog' | 'epic' | 'xbox' | 'origin' | 'manual';
+export type GameLauncher =
+  | 'steam'
+  | 'gog'
+  | 'epic'
+  | 'xbox'
+  | 'origin'
+  | 'ubisoft'
+  | 'battlenet'
+  | 'amazon'
+  | 'microsoftstore'
+  | 'manual';
+
+export type ModSupportLevel = 'full' | 'partial' | 'none';
 
 export type ModType = 
   | 'simple' 
@@ -25,13 +37,20 @@ export interface Game {
   name: string;
   installPath: string;
   supportPath: string;
+  /** Не из БД: true, если папка установки отсутствует на диске. */
+  installPathMissing?: boolean;
   launcher: GameLauncher;
   extensionId: string | null;
   supportedModTypes: ModType[];
   mergeMods: boolean;
+  modSupport: ModSupportLevel;
   details: GameDetails;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface RemoveGameResult {
+  deletedMods: number;
 }
 
 export interface Mod {

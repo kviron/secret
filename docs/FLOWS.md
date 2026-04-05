@@ -13,160 +13,19 @@ Step-by-step implementation flows for core user interactions. Each flow shows th
 **Flow**:
 
 ```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                         GAME DETECTION FLOW                             │
-└─────────────────────────────────────────────────────────────────────────┘
-
-1. UI Layer (Solid.js)
-   │
-   ├── User clicks "Detect Games" button
-   │
-   └── invoke('detect_games') ────────────────────────────────┐
-                                                               │
-2. Rust Backend: GameDetector                                   │
-   │                                                            │
-   ├── Scan Steam registry                                     │
-   │   └── Read HKEY_LOCAL_MACHINE\Software\Valve\Steam         │
-   │   └── Parse steamapps/libraryfolders.vdf                   │
-   │   └── Extract game paths with Steam App IDs                │
-   │                                                              │
-   ├── Scan GOG registry                                        │
-   │   └── Read HKEY_LOCAL_MACHINE\Software\GOG.com\Games       │
-   │   └── Query Galaxy manifest files                           │
-   │                                                              │
-   ├── Scan Epic manifests                                      │
-   │   └── Read %ProgramData%\Epic\EpicGamesLauncher\Data\...   │
-   │                                                              │
-   └── For each discovered game:                                │
-       ├── Match against known game database                    │
-       ├── Validate required files exist                        │
-       └── Create Game entity with extension matching            │
-                                                               │
-3. Database (SQLite)                                             │
-   │                                                            │
-   └── INSERT OR REPLACE INTO games (...)                       │
-                                                               │
-4. Return Vec<Game> to UI ◄────────────────────────────────────┘
-                                                               │
-5. UI Layer                                                      │
-   │                                                            │
-   ├── Receive games array                                      │
-   ├── Update gameStore with games                              │
-   └── Render game cards on dashboard
+1. UI — `invoke('detect_games')` via game API / feature buttons; listen for detection events.
+2. Rust — `commands::games::detect_games` → `GameDetector::detect_games(on_progress, on_error)`:
+   - Steam: Windows (HKCU SteamPath + manifests) or Linux (`~/.steam/steam`, `~/.local/share/Steam`)
+   - GOG / Epic / Xbox: Windows registry and manifest paths (see docs/modules/game-detector.md)
+   - Deduplicate games by `id`
+3. SQLite — `insert_or_update_game` for each result; events `game_detected`, `game_detection_completed`
+4. UI — store updates; dashboard renders cards
 ```
 
-**Code Implementation**:
+**Code pointers**:
 
-### Frontend (TypeScript)
-
-```typescript
-// entities/game/api/gameApi.ts
-export const gameApi = {
-  detectGames: () => invoke<Game[]>('detect_games'),
-  getGames: () => invoke<Game[]>('get_games'),
-  selectGame: (gameId: string) => invoke<void>('select_game', { gameId }),
-};
-
-// pages/dashboard/index.tsx
-import { createSignal, onMount } from 'solid-js';
-import { gameApi } from '@/entities/game/api/gameApi';
-import { GameCard } from '@/widgets/GameCard';
-
-export const DashboardPage = () => {
-  const [games, setGames] = createSignal<Game[]>([]);
-  const [isDetecting, setIsDetecting] = createSignal(false);
-  
-  onMount(async () => {
-    const loadedGames = await gameApi.getGames();
-    setGames(loadedGames);
-  });
-  
-  const handleDetectGames = async () => {
-    setIsDetecting(true);
-    try {
-      const detectedGames = await gameApi.detectGames();
-      setGames(detectedGames);
-    } finally {
-      setIsDetecting(false);
-    }
-  };
-  
-  return (
-    <div>
-      <Button onClick={handleDetectGames} isLoading={isDetecting()}>
-        Detect Games
-      </Button>
-      <div class="game-grid">
-        <For each={games()}>
-          {(game) => <GameCard game={game} onSelect={gameApi.selectGame} />}
-        </For>
-      </div>
-    </div>
-  );
-};
-```
-
-### Backend (Rust)
-
-```rust
-// src-tauri/src/commands/games.rs
-#[tauri::command]
-pub async fn detect_games() -> Result<Vec<Game>, String> {
-    let detector = GameDetector::new();
-    detector.detect_games().await
-}
-
-#[tauri::command]
-pub async fn get_games() -> Result<Vec<Game>, String> {
-    let db = Database::new().map_err(|e| e.to_string())?;
-    db.list_games()
-}
-
-// src-tauri/src/services/game_detector.rs
-pub struct GameDetector;
-
-impl GameDetector {
-    pub fn new() -> Self {
-        Self
-    }
-    
-    pub async fn detect_games(&self) -> Result<Vec<Game>, String> {
-        let mut games = Vec::new();
-        
-        // Steam detection
-        games.extend(self.detect_steam_games()?);
-        
-        // GOG detection
-        games.extend(self.detect_gog_games()?);
-        
-        // Epic detection
-        games.extend(self.detect_epic_games()?);
-        
-        Ok(games)
-    }
-    
-    fn detect_steam_games(&self) -> Result<Vec<Game>, String> {
-        use winreg::RegKey;
-        use std::path::PathBuf;
-        
-        let hkcu = RegKey::predef(HKEY_CURRENT_USER);
-        let steam_path = hkcu
-            .open_subkey("Software\\Valve\\Steam")
-            .map_err(|e| e.to_string())?
-            .get_value::<String, _>("SteamPath")
-            .map_err(|e| e.to_string())?;
-        
-        let library_folders = PathBuf::from(&steam_path)
-            .join("steamapps\\libraryfolders.vdf");
-        
-        // Parse VDF file for additional library paths
-        // Then scan each for game installations
-        // Match against KNOWN_GAMES database
-        
-        Ok(games)
-    }
-}
-```
+- Frontend: `src/entities/game/api/gameApi.ts`, `src/entities/game/model/gameStore.ts`, `src/features/detect-games/`, `src/pages/dashboard/index.tsx`
+- Backend: `src-tauri/src/commands/games.rs`, `src-tauri/src/services/game_detector.rs`
 
 ---
 
