@@ -451,6 +451,105 @@ body {
   gap: var(--space-lg);
 }
 
+/* Hover panel: детали игры справа от карточки */
+.game-card-hover-wrap {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  border-radius: var(--radius-lg);
+  outline: none;
+}
+
+.game-card-hover-wrap:focus-visible {
+  box-shadow: 0 0 0 2px var(--bg-primary), 0 0 0 4px var(--border-focus);
+}
+
+/*
+ * Zag Popper копирует z-index с *первого дочернего* узла плавающей панели (контент)
+ * в style positioner: z-index: var(--z-index). Без z-index на контенте — auto,
+ * и соседние карточки сетки рисуются поверх.
+ */
+.game-card-details-positioner {
+  /* подстраховка, если --z-index ещё не выставлен */
+  z-index: 10000;
+}
+
+.game-card-details-popover {
+  position: relative;
+  z-index: 10000;
+  isolation: isolate;
+  max-width: min(380px, calc(100vw - 48px));
+  padding: 0;
+  background: linear-gradient(165deg, var(--bg-elevated) 0%, var(--bg-tertiary) 100%);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.04) inset,
+    0 16px 48px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+}
+
+.game-card-details-popover-inner {
+  padding: var(--space-md);
+}
+
+.game-card-details-popover__title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: var(--space-md);
+  padding-bottom: var(--space-sm);
+  border-bottom: 1px solid var(--border-default);
+}
+
+.game-card-details-dl {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.game-card-details-row {
+  display: grid;
+  grid-template-columns: minmax(108px, 42%) 1fr;
+  gap: var(--space-sm) var(--space-md);
+  align-items: start;
+  padding: var(--space-xs) 0;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.game-card-details-row dt {
+  margin: 0;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.game-card-details-row dd {
+  margin: 0;
+  color: var(--text-secondary);
+  word-break: break-word;
+}
+
+.game-card-details-path {
+  color: var(--warning);
+  font-family: ui-monospace, 'Cascadia Code', monospace;
+  font-size: 11px;
+}
+
+[data-theme='light'] .game-card-details-popover {
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.04) inset,
+    0 12px 40px rgba(15, 23, 42, 0.12);
+}
+
+[data-theme='light'] .game-card-details-path {
+  color: #b45309;
+}
+
 .game-card {
   display: flex;
   flex-direction: column;
@@ -623,13 +722,16 @@ body {
   padding-top: var(--space-sm);
   border-top: 1px solid var(--border-default);
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  flex-wrap: nowrap;
   gap: var(--space-xs);
+  align-items: stretch;
 }
 
 .game-card-manage,
 .game-card-launch {
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   justify-content: center;
 }
 

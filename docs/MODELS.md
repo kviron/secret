@@ -57,6 +57,17 @@ pub struct GameDetails {
     pub environment: HashMap<String, String>,
 }
 
+/// См. `get_game_install_stats` — не в БД; размеры папки, PE-версия (Windows), поля Steam `appmanifest`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GameInstallStats {
+    pub disk_usage_bytes: u64,
+    pub disk_usage_bytes_no_symlinks: u64,
+    pub steam_size_on_disk_bytes: Option<u64>,
+    pub steam_build_id: Option<String>,
+    pub installed_version_label: Option<String>,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum GameLauncher {
@@ -152,13 +163,22 @@ export type ModType =
   | 'scriptExtender' 
   | 'modPlugin'
   | 'gameSaves';
+
+/** Ответ `get_game_install_stats` — не хранится в БД, запрашивается по наведению на карточку. */
+export interface GameInstallStats {
+  diskUsageBytes: number;
+  diskUsageBytesNoSymlinks: number;
+  steamSizeOnDiskBytes: number | null;
+  steamBuildId: string | null;
+  installedVersionLabel: string | null;
+}
 ```
 
 ### Games Library card (dashboard)
 
 | Item | Location / behavior |
 |------|---------------------|
-| Page | `src/pages/dashboard/index.tsx` — `GameCardCover` renders header art + mod-support badge |
+| Page | `src/pages/dashboard/index.tsx` — сетка `GameLibraryCard`; сведения на hover — `get_game_install_stats` (два размера папки, PE FileVersion на Windows, Steam `buildid` / `SizeOnDisk`) |
 | Steam default art | `src/shared/lib/steam-art.ts` — `steamHeaderImageUrl(appId)` → `…/steam/apps/{appId}/header.jpg` (Steam standard header capsule **~460×215**, ratio **460:215**) |
 | Custom art | `game.details.logo` — optional `https://…` URL; takes precedence over Steam header |
 | Layout | `src/index.css` — `.game-card-header` uses `aspect-ratio: 460 / 215`; image uses `object-fit: cover`; on load error, letter placeholder is shown |

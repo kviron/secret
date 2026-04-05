@@ -169,7 +169,7 @@ src/
 
 | Concern | Detail |
 |---------|--------|
-| Entry | `src/pages/dashboard/index.tsx` — grid of game cards, `GameCardCover` for the top banner |
+| Entry | `src/pages/dashboard/index.tsx` — grid of `GameLibraryCard` (`src/pages/dashboard/GameLibraryCard.tsx`). Карточка без строки пути в теле; путь и прочие поля — в панели **Hover Card** (Ark UI `@ark-ui/solid/hover-card`), справа от карточки при наведении |
 | Images | `src/shared/lib/steam-art.ts` — `steamHeaderImageUrl(appId)` loads Steam **header** art (`header.jpg`, ~460×215). Card header uses CSS `aspect-ratio: 460 / 215` in `src/index.css`. Optional `game.details.logo` overrides with a full `https` URL |
 | Data | `entities/game` store — `invoke('get_games')` / detection events; payloads must be camelCase JSON (see MODELS.md) |
 

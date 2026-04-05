@@ -109,6 +109,20 @@ pub struct Game {
     pub updated_at: String,
 }
 
+/// Сведения об установке: размер на диске и данные Steam `appmanifest` (см. `get_game_install_stats`).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GameInstallStats {
+    /// С обходом симлинков (основная метрика «Space used», как в Vortex).
+    pub disk_usage_bytes: u64,
+    /// Без обхода симлинков («Space used (no symlinks)»).
+    pub disk_usage_bytes_no_symlinks: u64,
+    pub steam_size_on_disk_bytes: Option<u64>,
+    pub steam_build_id: Option<String>,
+    /// PE FileVersion (Windows) или `Steam build …` из манифеста.
+    pub installed_version_label: Option<String>,
+}
+
 impl Game {
     pub fn new(id: &str, name: &str, install_path: PathBuf, launcher: GameLauncher) -> Self {
         let now = chrono::Utc::now().to_rfc3339();

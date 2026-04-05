@@ -1,5 +1,6 @@
-use crate::models::{Game, RemoveGameResult};
+use crate::models::{Game, GameInstallStats, RemoveGameResult};
 use crate::services::game_detector::GameDetector;
+use crate::services::game_install_stats::compute_game_install_stats;
 use crate::AppState;
 use std::path::PathBuf;
 use tauri::{Emitter, State};
@@ -12,6 +13,20 @@ pub async fn get_games(state: State<'_, AppState>) -> Result<Vec<Game>, String> 
 #[tauri::command]
 pub async fn get_game(state: State<'_, AppState>, game_id: String) -> Result<Option<Game>, String> {
     state.db.find_game(&game_id)
+}
+
+#[tauri::command]
+pub async fn get_game_install_stats(
+    state: State<'_, AppState>,
+    game_id: String,
+) -> Result<GameInstallStats, String> {
+    let game = state
+        .db
+        .find_game(&game_id)?
+        .ok_or_else(|| format!("Game not found: {}", game_id))?;
+    tokio::task::spawn_blocking(move || compute_game_install_stats(&game))
+        .await
+        .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]

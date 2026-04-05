@@ -4,6 +4,7 @@ import type {
   Game,
   DetectionProgress,
   GameDetectionError,
+  GameInstallStats,
   RemoveGameResult,
   SaveFileEntry,
 } from '@/shared/types';
@@ -11,6 +12,8 @@ import type {
 export const gameApi = {
   getGames: () => api.invoke<Game[]>('get_games'),
   getGame: (gameId: string) => api.invoke<Game | null>('get_game', { gameId }),
+  getGameInstallStats: (gameId: string) =>
+    api.invoke<GameInstallStats>('get_game_install_stats', { gameId }),
   detectGames: () => api.invoke<Game[]>('detect_games'),
   scanCustomPath: (path: string) => api.invoke<Game[]>('scan_custom_path', { path }),
   registerGame: (game: Game) => api.invoke<Game>('register_game', { game }),

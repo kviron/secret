@@ -55,6 +55,17 @@ export interface RemoveGameResult {
   deletedMods: number;
 }
 
+/** Ответ `get_game_install_stats`: размер папки и поля Steam `appmanifest` (buildid, SizeOnDisk). */
+export interface GameInstallStats {
+  /** С учётом симлинков (основная строка «Space used»). */
+  diskUsageBytes: number;
+  /** Без обхода симлинков (как «Space used (no symlinks)» в Vortex). */
+  diskUsageBytesNoSymlinks: number;
+  steamSizeOnDiskBytes: number | null;
+  steamBuildId: string | null;
+  installedVersionLabel: string | null;
+}
+
 export interface Mod {
   id: string;
   gameId: string;

@@ -32,6 +32,25 @@ const games = await invoke<Game[]>('get_games');
 
 ---
 
+#### get_game_install_stats
+
+```rust
+#[tauri::command]
+pub async fn get_game_install_stats(game_id: String) -> Result<GameInstallStats, String>
+```
+
+**Parameters**:
+- `gameId: string` — id игры в каталоге Pantheon.
+
+**Returns**: `GameInstallStats`: два размера папки установки (`diskUsageBytes` — с обходом симлинков; `diskUsageBytesNoSymlinks` — без); на Windows строка `installedVersionLabel` из ресурса версии главного `.exe` (`requiredFiles`), иначе запасной вариант `Steam build …` из `appmanifest_<appId>.acf`; для Steam также `steamSizeOnDiskBytes`, `steamBuildId` (см. [Vortex](https://github.com/Nexus-Mods/Vortex)).
+
+**Example**:
+```typescript
+const stats = await invoke<GameInstallStats>('get_game_install_stats', { gameId: 'skyrimse' });
+```
+
+---
+
 #### detect_games
 
 ```rust
