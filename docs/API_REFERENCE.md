@@ -12,7 +12,400 @@ See **MODELS.md → JSON over Tauri IPC** for the full rules and database JSON c
 
 ---
 
-## Commands
+## Implemented Commands (Phase 1-2)
+
+47 commands currently registered in `src-tauri/src/lib.rs`. These are actually compiled and available for `invoke()`.
+
+### Game Commands
+
+#### get_games
+
+```rust
+#[tauri::command]
+pub async fn get_games() -> Result<Vec<Game>, String>
+```
+
+**Returns**: All registered games from database.
+
+#### get_game
+
+```rust
+#[tauri::command]
+pub async fn get_game(game_id: String) -> Result<Option<Game>, String>
+```
+
+**Returns**: Single game by ID, or `null`.
+
+#### get_game_install_stats
+
+```rust
+#[tauri::command]
+pub async fn get_game_install_stats(game_id: String) -> Result<GameInstallStats, String>
+```
+
+**Returns**: Disk usage, Steam metadata, PE version string.
+
+#### detect_games
+
+```rust
+#[tauri::command]
+pub async fn detect_games() -> Result<Vec<Game>, String>
+```
+
+**Returns**: Newly discovered games from registry scanning.
+
+#### scan_custom_path
+
+```rust
+#[tauri::command]
+pub async fn scan_custom_path(path: String) -> Result<Vec<Game>, String>
+```
+
+**Returns**: Games found in user-selected directory.
+
+#### register_game
+
+```rust
+#[tauri::command]
+pub async fn register_game(game: Game) -> Result<Game, String>
+```
+
+#### unregister_game
+
+```rust
+#[tauri::command]
+pub async fn unregister_game(game_id: String) -> Result<(), String>
+```
+
+#### remove_game_from_library
+
+```rust
+#[tauri::command]
+pub async fn remove_game_from_library(game_id: String) -> Result<RemoveGameResult, String>
+```
+
+**Returns**: `{ deletedMods: number }` — count of deleted mods.
+
+### Mod Commands
+
+#### install_mod
+
+```rust
+#[tauri::command]
+pub async fn install_mod(game_id: String, archive_path: String) -> Result<Mod, String>
+```
+
+#### uninstall_mod
+
+```rust
+#[tauri::command]
+pub async fn uninstall_mod(mod_id: String) -> Result<(), String>
+```
+
+#### get_mods
+
+```rust
+#[tauri::command]
+pub async fn get_mods(game_id: String) -> Result<Vec<Mod>, String>
+```
+
+#### set_mod_enabled
+
+```rust
+#[tauri::command]
+pub async fn set_mod_enabled(mod_id: String, enabled: bool, strategy: Option<String>) -> Result<(), String>
+```
+
+**Parameters**:
+- `strategy: "auto" | "symlink" | "hardlink" | "copy"` (optional, defaults to "auto")
+
+### Deploy Commands
+
+#### deploy_mod
+
+```rust
+#[tauri::command]
+pub async fn deploy_mod(mod_id: String, strategy: Option<String>) -> Result<DeploymentState, String>
+```
+
+**Parameters**:
+- `strategy: "auto" | "symlink" | "hardlink" | "copy"` (optional, defaults to "auto")
+
+#### undeploy_mod
+
+```rust
+#[tauri::command]
+pub async fn undeploy_mod(mod_id: String) -> Result<(), String>
+```
+
+#### deploy_all
+
+```rust
+#[tauri::command]
+pub async fn deploy_all(game_id: String, strategy: Option<String>) -> Result<Vec<DeploymentState>, String>
+```
+
+#### check_conflicts
+
+```rust
+#[tauri::command]
+pub async fn check_conflicts(game_id: String) -> Result<Vec<Conflict>, String>
+```
+
+**Returns**: `{ filePath: string, modA: string, modB: string }[]`
+
+### Download Commands
+
+#### start_download
+
+```rust
+#[tauri::command]
+pub async fn start_download(url: String, file_name: String, game_id: Option<String>) -> Result<String, String>
+```
+
+**Returns**: `download_id` (UUID).
+
+#### pause_download
+
+```rust
+#[tauri::command]
+pub async fn pause_download(download_id: String) -> Result<(), String>
+```
+
+#### resume_download
+
+```rust
+#[tauri::command]
+pub async fn resume_download(download_id: String) -> Result<(), String>
+```
+
+#### cancel_download
+
+```rust
+#[tauri::command]
+pub async fn cancel_download(download_id: String) -> Result<(), String>
+```
+
+#### get_download
+
+```rust
+#[tauri::command]
+pub async fn get_download(download_id: String) -> Result<Option<Download>, String>
+```
+
+#### list_downloads
+
+```rust
+#[tauri::command]
+pub async fn list_downloads() -> Result<Vec<Download>, String>
+```
+
+#### list_download_queue
+
+```rust
+#[tauri::command]
+pub async fn list_download_queue() -> Result<Vec<Download>, String>
+```
+
+**Returns**: Downloads in `pending` / `downloading` / `paused` state.
+
+### Load Order Commands
+
+#### refresh_plugin_list
+
+```rust
+#[tauri::command]
+pub async fn refresh_plugin_list(game_id: String) -> Result<Vec<PluginInfo>, String>
+```
+
+Scans game data directory, merges with DB state.
+
+#### get_load_order
+
+```rust
+#[tauri::command]
+pub async fn get_load_order(game_id: String) -> Result<Vec<PluginInfo>, String>
+```
+
+#### set_plugin_enabled
+
+```rust
+#[tauri::command]
+pub async fn set_plugin_enabled(game_id: String, plugin_name: String, enabled: bool) -> Result<(), String>
+```
+
+#### move_plugin
+
+```rust
+#[tauri::command]
+pub async fn move_plugin(game_id: String, plugin_name: String, new_index: u32) -> Result<(), String>
+```
+
+#### auto_sort_plugins
+
+```rust
+#[tauri::command]
+pub async fn auto_sort_plugins(game_id: String) -> Result<Vec<PluginInfo>, String>
+```
+
+Sorts ESM → ESL → ESP (alphabetical within each group).
+
+#### write_plugins_txt
+
+```rust
+#[tauri::command]
+pub async fn write_plugins_txt(game_id: String) -> Result<String, String>
+```
+
+Writes `%LOCALAPPDATA%/game_id/plugins.txt`. Enabled plugins get `*` prefix.
+
+#### read_plugins_txt
+
+```rust
+#[tauri::command]
+pub async fn read_plugins_txt(game_id: String) -> Result<Vec<String>, String>
+```
+
+#### set_plugin_ghost
+
+```rust
+#[tauri::command]
+pub async fn set_plugin_ghost(game_id: String, plugin_name: String, ghosted: bool) -> Result<(), String>
+```
+
+### Game Launcher Commands
+
+#### launch_game
+
+```rust
+#[tauri::command]
+pub fn launch_game(game_id: String, loader_id: Option<String>) -> Result<LaunchResult, String>
+```
+
+**Returns**: `{ processId: number, loaderUsed: string | null }`
+
+#### detect_game_loaders
+
+```rust
+#[tauri::command]
+pub fn detect_game_loaders(game_id: String) -> Result<Vec<LoaderInfo>, String>
+```
+
+**Returns**: Available loaders (SKSE, F4SE, BepInEx, etc.).
+
+#### is_game_running
+
+```rust
+#[tauri::command]
+pub fn is_game_running(game_id: String) -> bool
+```
+
+#### list_running_games
+
+```rust
+#[tauri::command]
+pub fn list_running_games() -> Vec<RunningGame>
+```
+
+#### get_running_game
+
+```rust
+#[tauri::command]
+pub fn get_running_game(game_id: String) -> Option<RunningGame>
+```
+
+#### kill_game
+
+```rust
+#[tauri::command]
+pub fn kill_game(game_id: String) -> Result<(), String>
+```
+
+### Game Content Commands
+
+#### list_game_plugins
+
+```rust
+#[tauri::command]
+pub async fn list_game_plugins(game_id: String) -> Result<Vec<String>, String>
+```
+
+Returns ESP/ESM/ESL file names from game data directory.
+
+#### list_game_saves
+
+```rust
+#[tauri::command]
+pub async fn list_game_saves(game_id: String) -> Result<Vec<SaveFileEntry>, String>
+```
+
+#### delete_save
+
+```rust
+#[tauri::command]
+pub async fn delete_save(game_id: String, save_path: String) -> Result<(), String>
+```
+
+#### backup_save
+
+```rust
+#[tauri::command]
+pub async fn backup_save(game_id: String, save_path: String) -> Result<String, String>
+```
+
+#### restore_save
+
+```rust
+#[tauri::command]
+pub async fn restore_save(game_id: String, backup_path: String) -> Result<(), String>
+```
+
+#### list_save_backups
+
+```rust
+#[tauri::command]
+pub async fn list_save_backups(game_id: String) -> Result<Vec<SaveBackupEntry>, String>
+```
+
+#### get_saves_dir_path
+
+```rust
+#[tauri::command]
+pub async fn get_saves_dir_path(game_id: String) -> Result<Option<String>, String>
+```
+
+### System Commands
+
+#### open_folder
+
+```rust
+#[tauri::command]
+pub fn open_folder(path: String) -> Result<(), String>
+```
+
+Opens folder in system file explorer.
+
+### Extension Commands
+
+#### list_extensions
+
+```rust
+#[tauri::command]
+pub fn list_extensions() -> Result<Vec<ExtensionInfo>, String>
+```
+
+#### get_extension_info
+
+```rust
+#[tauri::command]
+pub fn get_extension_info(extension_id: String) -> Result<Option<ExtensionInfo>, String>
+```
+
+---
+
+## Planned Commands (Future Phases)
+
+Commands planned for future phases. Not yet implemented.
 
 ### Game Commands
 

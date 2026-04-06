@@ -659,6 +659,256 @@ export interface DownloadProgress {
 
 ---
 
+## Implemented Types (Phase 1-2)
+
+Types that actually exist in `src-tauri/src/models.rs` and are used in the current codebase.
+
+### DeployStrategy
+
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum DeployStrategy {
+    #[default]
+    Auto,
+    Symlink,
+    Hardlink,
+    Copy,
+}
+```
+
+**Note:** `Auto` strategy tries symlink → hardlink → copy with rollback on failure.
+
+### Conflict (flat struct)
+
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Conflict {
+    pub file_path: String,
+    pub mod_a: String,
+    pub mod_b: String,
+}
+```
+
+### DownloadState
+
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum DownloadState {
+    #[default]
+    Pending,
+    Downloading,
+    Paused,
+    Completed,
+    Failed,
+    Cancelled,
+}
+```
+
+### Download (actual implementation)
+
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Download {
+    pub id: String,
+    pub url: String,
+    pub file_name: String,
+    pub destination: String,
+    pub game_id: Option<String>,
+    pub total_bytes: u64,
+    pub downloaded_bytes: u64,
+    pub state: String,
+    pub error: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+```
+
+### DownloadProgress (actual implementation)
+
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DownloadProgress {
+    pub download_id: String,
+    pub downloaded_bytes: u64,
+    pub total_bytes: u64,
+    pub speed_bps: f64,
+    pub percent: f64,
+    pub state: String,
+}
+```
+
+### PluginType
+
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum PluginType {
+    #[default]
+    Esp,
+    Esm,
+    Esl,
+}
+```
+
+### PluginInfo (actual implementation)
+
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PluginInfo {
+    pub name: String,
+    pub plugin_type: String,
+    pub enabled: bool,
+    pub load_order: u32,
+    pub is_ghost: bool,
+}
+```
+
+### LoadOrderEntry (actual implementation)
+
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LoadOrderEntry {
+    pub game_id: String,
+    pub plugin_name: String,
+    pub load_order_index: u32,
+    pub enabled: bool,
+    pub plugin_type: String,
+}
+```
+
+### LoaderInfo
+
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LoaderInfo {
+    pub loader_id: String,
+    pub loader_type: String,
+    pub executable: String,
+    pub version: Option<String>,
+    pub installed: bool,
+}
+```
+
+### RunningGame
+
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RunningGame {
+    pub game_id: String,
+    pub process_id: u32,
+    pub started_at: String,
+}
+```
+
+### LaunchResult
+
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LaunchResult {
+    pub process_id: u32,
+    pub loader_used: Option<String>,
+}
+```
+
+### ExtensionInfo
+
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExtensionInfo {
+    pub id: String,
+    pub name: String,
+    pub version: String,
+    pub extension_type: String,
+    pub enabled: bool,
+    pub description: Option<String>,
+    pub author: Option<String>,
+}
+```
+
+### ExtensionManifest (skeleton)
+
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExtensionManifest {
+    pub id: String,
+    pub name: String,
+    pub version: String,
+    pub extension_type: String,
+    pub description: Option<String>,
+    pub author: Option<String>,
+    pub runtime: RuntimeDeps,
+    pub detection: Option<GameDetectionConfig>,
+    pub mod_paths: Option<HashMap<String, String>>,
+    pub merge_mods: Option<bool>,
+    pub supported_mod_types: Option<Vec<String>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct RuntimeDeps {
+    pub requires: Vec<String>,
+    pub optional: Vec<String>,
+}
+```
+
+### GameInstallStats
+
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GameInstallStats {
+    pub disk_usage_bytes: u64,
+    pub disk_usage_bytes_no_symlinks: u64,
+    pub steam_size_on_disk_bytes: Option<u64>,
+    pub steam_build_id: Option<String>,
+    pub installed_version_label: Option<String>,
+}
+```
+
+### DetectionProgress
+
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DetectionProgress {
+    pub message: String,
+    pub found: usize,
+    pub total: usize,
+    pub current_game: Option<String>,
+}
+```
+
+### GameDetectionError
+
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GameDetectionError {
+    pub game_id: String,
+    pub game_name: String,
+    pub error: String,
+    pub recoverable: bool,
+}
+```
+
+---
+
+## Planned Types (Future Phases)
+
+Types planned for future phases (Phase 3-4). Not yet implemented in `models.rs`.
+
 ## Profile
 
 ### Rust

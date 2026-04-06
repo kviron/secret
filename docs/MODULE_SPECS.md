@@ -41,17 +41,17 @@ Platform-specific helpers (`detect_steam_games`, GOG/Epic/Xbox scans) are **priv
 
 **Detection Methods (implemented)**:
 
-1. **Steam (Windows)**: `HKCU\Software\Valve\Steam` → `SteamPath`, `steamapps/appmanifest_*.acf`, `libraryfolders.vdf` (normalized + deduplicated paths), `KNOWN_GAMES` + generic `steam_<appid>`, skip-list for tool depots.
+1. **Steam (Windows)**: `HKCU\Software\Valve\Steam` → `SteamPath`, `steamapps/appmanifest_*.acf`, `libraryfolders.vdf` (case-insensitive, normalize paths), `KNOWN_GAMES` + generic `steam_<appid>`, skip-list for tool depots; executable search: root → recursive subdirs (depth limit=5).
 
-2. **Steam (Linux)**: `~/.steam/steam` and `~/.local/share/Steam` — same manifest logic as Windows.
+2. **Steam (Linux)**: `~/.steam/steam`, `~/.local/share/Steam` + Flatpak (`~/.var/app/com.valvesoftware.Steam`) + Snap (`~/snap/steam`); `libraryfolders.vdf` parsed for additional library paths; recursive executable search supports Linux executables without `.exe` extension.
 
-3. **GOG (Windows)**: `HKLM\SOFTWARE\WOW6432Node\GOG.com\Games` (with fallback to `HKLM\SOFTWARE\GOG.com\Games`) — resolve install path from registry values, match against `KNOWN_GAMES` by executable paths.
+3. **GOG (Windows)**: `HKLM\SOFTWARE\WOW6432Node\GOG.com\Games` (with fallback to `HKLM\SOFTWARE\GOG.com\Games`) — priority: `path` > `exe` parent directory > `InstallDir`; quote trimming; match against `KNOWN_GAMES` by executable paths.
 
 4. **GOG Galaxy (Windows)**: `%LOCALAPPDATA%\GOG.com\Galaxy\storage\galaxy-2.0.db` — `DbGame.installationPath`.
 
 5. **Epic (Windows)**: `%ProgramData%\Epic\EpicGamesLauncher\Data\Manifests\*.item` — JSON `InstallLocation`, match against `KNOWN_GAMES`.
 
-6. **EA / Origin (Windows)**: `HKLM\SOFTWARE\...\EA Games\*\Install Dir`.
+6. **EA / Origin (Windows)**: `HKLM\SOFTWARE\...\EA Games\*\Install Dir` + EA Desktop detection via `HKCU\Software\EA Desktop\Game Download\Installs\<key>\InstallLocation`.
 
 7. **Ubisoft Connect (Windows)**: `HKLM\SOFTWARE\WOW6432Node\Ubisoft\Launcher\Installs\*\InstallDir`.
 
@@ -63,9 +63,9 @@ Platform-specific helpers (`detect_steam_games`, GOG/Epic/Xbox scans) are **priv
 
 11. **Microsoft Store (Windows, best-effort)**: `HKLM\...\Uninstall` — `InstallLocation` scan (capped).
 
-12. **Heroic (Linux)**: `~/.config/heroic/**/*.json`.
+12. **Heroic (Linux)**: `~/.config/heroic/**/*.json` + Flatpak (`~/.var/app/com.heroic.games.launcher/config/heroic`).
 
-13. **Lutris (Linux)**: `~/.local/share/lutris/games/*.yml`.
+13. **Lutris (Linux)**: `~/.local/share/lutris/games/*.yml` + Flatpak (`~/.var/app/net.lutris.Lutris/data/lutris/games`).
 
 **Planned / not in v1**:
 
@@ -74,9 +74,10 @@ Platform-specific helpers (`detect_steam_games`, GOG/Epic/Xbox scans) are **priv
 **Game Registration Flow**:
 ```
 1. Collect candidates per launcher (full pipeline; see docs/modules/game-detector.md)
-2. Match install folders against KNOWN_GAMES executables (and Steam App ID map); exe path index accelerates matching
-3. Deduplicate by Game.id
-4. Return Vec<Game> (Tauri command persists to SQLite)
+2. Match install folders against KNOWN_GAMES executables (exe path index accelerates matching)
+3. For unknown Steam games: recursive executable search (root → subdirs, depth=5)
+4. Deduplicate by Game.id
+5. Return Vec<Game> (Tauri command persists to SQLite)
 ```
 
 **Key Interactions**:
@@ -1996,3 +1997,210 @@ export const api = {
 16. UpdateChecker
 17. RepositoryApiClient
 18. BackupManager
+
+---
+
+## Phase 2: Actual Implementation Notes
+
+### 6. DeployManager (Implemented)
+
+**Location**: `src-tauri/src/services/deploy_manager.rs`
+
+**Actual API**:
+
+```rust
+impl DeployManager {
+    pub fn new(db: Database) -> Self;
+
+    pub async fn deploy_mod(&self, mod_id: &str, strategy: DeployStrategy) -> Result<DeploymentState, String>;
+
+    pub async fn undeploy_mod(&self, mod_id: &str) -> Result<(), String>;
+
+    pub async fn enable_mod(&self, mod_id: &str, strategy: DeployStrategy) -> Result<DeploymentState, String>;
+
+    pub async fn disable_mod(&self, mod_id: &str) -> Result<(), String>;
+
+    pub async fn deploy_all(&self, game_id: &str, strategy: DeployStrategy) -> Result<Vec<DeploymentState>, String>;
+
+    pub async fn check_conflicts(&self, game_id: &str) -> Result<Vec<Conflict>, String>;
+}
+```
+
+**Key differences from spec**:
+- `DeployStrategy`: `Auto/Symlink/Hardlink/Copy` (no `Merge`)
+- `deploy_mod` takes explicit `strategy` parameter
+- Auto strategy: fallback chain symlink → hardlink → copy with rollback
+- `Conflict`: flat struct `{ file_path, mod_a, mod_b }` (not tagged enum)
+- `DeployedFile`: `{ source, target, size }` (no `linkType`/`hash`)
+- Symlink removal uses `symlink_metadata()` check to avoid deleting target directory
+
+### 7. DownloadManager (Implemented)
+
+**Location**: `src-tauri/src/services/download_manager.rs`
+
+**Actual API**:
+
+```rust
+impl DownloadManager {
+    pub fn new(db: Database, downloads_dir: PathBuf, app: AppHandle) -> Self;
+
+    pub async fn start_download(&self, url: &str, file_name: &str, game_id: Option<&str>) -> Result<String, String>;
+
+    pub async fn pause_download(&self, download_id: &str) -> Result<(), String>;
+
+    pub async fn resume_download(&self, download_id: &str) -> Result<(), String>;
+
+    pub async fn cancel_download(&self, download_id: &str) -> Result<(), String>;
+
+    pub fn get_download(&self, download_id: &str) -> Result<Option<Download>, String>;
+
+    pub fn list_downloads(&self) -> Result<Vec<Download>, String>;
+
+    pub fn list_queue(&self) -> Result<Vec<Download>, String>;
+}
+```
+
+**Key differences from spec**:
+- Single-stream download (no chunked/Range support yet)
+- `start_download(url, file_name, game_id?)` — 3 params, not 2
+- `MAX_CONCURRENT = 3` hardcoded
+- Pause is AtomicBool spin-wait (not resume from offset)
+- Progress events via `AppHandle::emit("download_progress", ...)` every 250ms
+- Download monitor runs in `tokio::spawn`
+
+### 8. LoadOrderManager (Implemented)
+
+**Location**: `src-tauri/src/services/load_order_manager.rs`
+
+**Actual API**:
+
+```rust
+impl LoadOrderManager {
+    pub fn new(db: Database) -> Self;
+
+    pub fn refresh_plugin_list(&self, game_id: &str, data_dir: &Path) -> Result<Vec<PluginInfo>, String>;
+
+    pub fn get_load_order(&self, game_id: &str) -> Result<Vec<PluginInfo>, String>;
+
+    pub fn set_plugin_enabled(&self, game_id: &str, plugin_name: &str, enabled: bool) -> Result<(), String>;
+
+    pub fn move_plugin(&self, game_id: &str, plugin_name: &str, new_index: u32) -> Result<(), String>;
+
+    pub fn auto_sort(&self, game_id: &str) -> Result<Vec<PluginInfo>, String>;
+
+    pub fn write_plugins_txt(&self, game_id: &str, local_app_data_dir: &Path) -> Result<PathBuf, String>;
+
+    pub fn read_plugins_txt(&self, game_id: &str, local_app_data_dir: &Path) -> Result<Vec<String>, String>;
+
+    pub fn set_plugin_ghost(&self, data_dir: &Path, plugin_name: &str, ghosted: bool) -> Result<(), String>;
+}
+```
+
+**Key differences from spec**:
+- `LoadOrderEntry`: `plugin_type` field (not `groupName`)
+- Auto-sort: ESM < ESL < ESP alphabetical (no LOOT integration)
+- `PluginInfo`: 5 fields (`name`, `plugin_type`, `enabled`, `load_order`, `is_ghost`)
+- `plugins.txt` in `%LOCALAPPDATA%/game_id/` (Bethesda convention)
+- `write_plugins_txt` returns `PathBuf` (the file path)
+- DB table `load_order` with composite PK `(game_id, plugin_name)`
+
+### 9. ExtensionSystem (Implemented — Skeleton)
+
+**Location**: `src-tauri/src/extensions/`
+
+**Actual structure**:
+
+```
+src-tauri/src/extensions/
+├── mod.rs          — re-exports
+├── context.rs      — ExtensionContext + traits
+├── registry.rs     — ExtensionRegistry
+└── builtin.rs      — SimpleModType, PluginModType
+```
+
+**Actual traits** (in `context.rs`):
+
+```rust
+pub trait Extension: Send + Sync {
+    fn id(&self) -> &str;
+    fn name(&self) -> &str;
+    fn version(&self) -> &str;
+    fn init(&self, ctx: &mut ExtensionContext) -> Result<(), String>;
+    fn shutdown(&self) -> Result<(), String> { Ok(()) }
+}
+
+pub trait GameExtension: Extension {
+    fn detect(&self) -> Option<GameInfo>;
+    fn get_mod_paths(&self, install_path: &Path) -> HashMap<String, PathBuf>;
+}
+
+pub trait ModTypeExtension: Extension {
+    fn id(&self) -> &str;
+    fn priority(&self) -> i32;
+    fn test(&self, archive_path: &Path) -> bool;
+    fn install(&self, archive_path: &Path, dest: &Path, game_id: &str) -> Result<Mod, String>;
+}
+
+pub trait InstallerExtension: Extension {
+    fn id(&self) -> &str;
+    fn priority(&self) -> i32;
+    fn test(&self, archive_path: &Path) -> bool;
+    fn install(&self, archive_path: &Path, dest: &Path, game_id: &str) -> Result<Mod, String>;
+}
+```
+
+**Built-in extensions**:
+- `modtype-simple` (priority 100) — default fallback, always matches
+- `modtype-plugin` (priority 50) — matches `.esp/.esm/.esl` files
+
+**Key differences from spec**:
+- `ExtensionRegistry` name (not `ExtensionManager`)
+- `ExtensionContext` is a plain struct (not closure-based)
+- `GameExtension` has `detect()` and `get_mod_paths()` only (no `list_plugins`, `get_launcher_args`)
+- `ModTypeExtension::install` takes `game_id` parameter
+- No JSON manifest loading yet
+- No dynamic loading (.so/.dll)
+
+### 10. GameLauncher (Implemented)
+
+**Location**: `src-tauri/src/services/game_launcher.rs`
+
+**Actual API**:
+
+```rust
+impl GameLauncherService {
+    pub fn new(db: Database) -> Self;
+
+    pub fn launch_game(&self, game_id: &str, loader_id: Option<&str>) -> Result<u32, String>;
+
+    pub fn detect_loaders(&self, game_id: &str) -> Result<Vec<LoaderInfo>, String>;
+
+    pub fn is_game_running(&self, game_id: &str) -> bool;
+
+    pub fn list_running(&self) -> Vec<RunningGame>;
+
+    pub fn get_running_game(&self, game_id: &str) -> Option<RunningGame>;
+
+    pub fn kill_game(&self, game_id: &str) -> Result<(), String>;
+}
+```
+
+**Known loaders** (auto-detected):
+```
+skse_loader.exe       → skse
+skse64_loader.exe     → skse64
+f4se_loader.exe       → f4se
+obse_loader.exe       → obse
+nvse_loader.exe       → nvse
+bepinex_doorstop.exe  → bepinex
+battleye_launcher.exe → battleye
+EasyAntiCheat_launcher.exe → eac
+```
+
+**Key differences from spec**:
+- `launch_game(game_id, loader_id?)` — uses `loader_id`, not `profile_id`
+- `LoaderInfo`: `loader_id` field (extra), `executable` as String (not PathBuf)
+- `RunningGame` struct with `process_id` and `started_at`
+- Background thread monitors process exit
+- Windows: `is_process_alive` via Win32 `GetExitCodeProcess`
+- `kill_game` via Win32 `TerminateProcess`

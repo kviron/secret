@@ -1,17 +1,27 @@
 mod commands;
 mod db;
+mod extensions;
 mod models;
 mod services;
 
 use db::Database;
+use extensions::ExtensionRegistry;
 use services::deploy_manager::DeployManager;
+use services::download_manager::DownloadManager;
+use services::game_launcher::GameLauncherService;
+use services::load_order_manager::LoadOrderManager;
 use services::mod_installer::ModInstaller;
 use std::path::PathBuf;
+use tauri::Manager;
 
 pub struct AppState {
     pub db: Database,
     pub installer: ModInstaller,
     pub deployer: DeployManager,
+    pub downloader: DownloadManager,
+    pub load_order: LoadOrderManager,
+    pub extensions: ExtensionRegistry,
+    pub launcher: GameLauncherService,
 }
 
 fn get_app_data_dir() -> PathBuf {
@@ -29,17 +39,35 @@ pub fn run() {
     db.migrate().expect("Failed to run migrations");
 
     let staging_path = app_data_dir.join("staging");
+    let downloads_dir = app_data_dir.join("downloads");
     let installer = ModInstaller::new(staging_path);
     let deployer = DeployManager::new(db.clone());
+    let load_order = LoadOrderManager::new(db.clone());
+    let launcher = GameLauncherService::new(db.clone());
+
+    let mut extensions = ExtensionRegistry::new();
+
+    // Scan extensions directory for game.json manifests
+    let _ = extensions.auto_scan(&app_data_dir);
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
-        .manage(AppState {
-            db,
-            installer,
-            deployer,
+        .setup(move |app| {
+            let downloader = DownloadManager::new(db.clone(), downloads_dir, app.handle().clone());
+
+            app.manage(AppState {
+                db,
+                installer,
+                deployer,
+                downloader,
+                load_order,
+                extensions,
+                launcher,
+            });
+
+            Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             commands::games::get_games,
@@ -54,9 +82,33 @@ pub fn run() {
             commands::mods::uninstall_mod,
             commands::mods::get_mods,
             commands::mods::set_mod_enabled,
+            commands::mods::parse_fomod,
+            commands::mods::validate_mod_files,
             commands::deploy::deploy_mod,
             commands::deploy::undeploy_mod,
             commands::deploy::deploy_all,
+            commands::deploy::check_conflicts,
+            commands::downloads::start_download,
+            commands::downloads::pause_download,
+            commands::downloads::resume_download,
+            commands::downloads::cancel_download,
+            commands::downloads::get_download,
+            commands::downloads::list_downloads,
+            commands::downloads::list_download_queue,
+            commands::load_order::refresh_plugin_list,
+            commands::load_order::get_load_order,
+            commands::load_order::set_plugin_enabled,
+            commands::load_order::move_plugin,
+            commands::load_order::auto_sort_plugins,
+            commands::load_order::write_plugins_txt,
+            commands::load_order::read_plugins_txt,
+            commands::load_order::set_plugin_ghost,
+            commands::game_launcher::launch_game,
+            commands::game_launcher::detect_game_loaders,
+            commands::game_launcher::is_game_running,
+            commands::game_launcher::list_running_games,
+            commands::game_launcher::get_running_game,
+            commands::game_launcher::kill_game,
             commands::game_content::list_game_plugins,
             commands::game_content::list_game_saves,
             commands::game_content::delete_save,
@@ -65,6 +117,10 @@ pub fn run() {
             commands::game_content::list_save_backups,
             commands::game_content::get_saves_dir_path,
             commands::system::open_folder,
+            commands::extensions::list_extensions,
+            commands::extensions::get_extension_info,
+            commands::extensions::rescan_extensions,
+            commands::extensions::get_extension_manifest,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

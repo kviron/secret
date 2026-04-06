@@ -8,6 +8,7 @@ import { GamePluginsPage } from '@/pages/game-plugins';
 import { GameSavesPage } from '@/pages/game-saves';
 import { ModsPage } from '@/pages/mods';
 import { DeploymentsPage } from '@/pages/deployments';
+import { DownloadsPage } from '@/pages/downloads';
 import { SettingsPage } from '@/pages/settings';
 
 export const AppRouter = () => {
@@ -22,6 +23,7 @@ export const AppRouter = () => {
       </Route>
       <Route path="/mods" component={ModsPage} />
       <Route path="/deployments" component={DeploymentsPage} />
+      <Route path="/downloads" component={DownloadsPage} />
       <Route path="/settings" component={SettingsPage} />
     </Router>
   );

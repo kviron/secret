@@ -5,7 +5,7 @@ export const ru: Record<MessageKey, string> = {
 
   'nav.games': 'Игры',
   'nav.mods': 'Моды',
-  'nav.deployments': 'Развёртывания',
+  'nav.downloads': 'Загрузки',
   'nav.settings': 'Настройки',
   'nav.generalSection': 'Общее',
   'nav.gameMods': 'Моды',
@@ -129,6 +129,10 @@ export const ru: Record<MessageKey, string> = {
   'deploymentsPage.title': 'Развёртывания',
   'deploymentsPage.emptyTitle': 'Развёртывания',
   'deploymentsPage.emptyDescription': 'Управляйте развёртыванием модов в библиотеке игр.',
+
+  'downloadsPage.title': 'Загрузки',
+  'downloadsPage.emptyTitle': 'Нет активных загрузок',
+  'downloadsPage.emptyDescription': 'Здесь будут отображаться все загрузки модов, плагинов и расширений.',
 
   'gameDetail.backTitle': 'Назад к библиотеке',
   'gameDetail.backAria': 'Назад к библиотеке',

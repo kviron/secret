@@ -103,7 +103,7 @@ pub trait PlatformAdapter: Send + Sync {
 | Area | Details |
 |------|---------|
 | Symlinks | `std::os::unix::fs::symlink` — no admin needed |
-| Game Detection | Steam library folders, Lutris, Heroic, Flatpak paths |
+| Game Detection | Steam library folders (including Flatpak/Snap), Lutris (+ Flatpak), Heroic (+ Flatpak); `libraryfolders.vdf` parsed for additional library paths |
 | Paths | XDG Base Directory spec (`$XDG_DATA_HOME`, `$XDG_CONFIG_HOME`) |
 | Permissions | Standard Unix permissions, no UAC |
 | Proton | Wine prefix detection for Windows games |
@@ -113,25 +113,26 @@ pub trait PlatformAdapter: Send + Sync {
 ### Linux Game Discovery
 
 ```rust
-// Steam library folders
+// Steam library folders (including Flatpak/Snap)
 const STEAM_PATHS: &[&str] = &[
     "~/.steam/steam",
     "~/.local/share/Steam",
     "~/.steam/root",
     "~/.var/app/com.valvesoftware.Steam/.local/share/Steam", // Flatpak
+    "~/snap/steam/common/.local/share/Steam",                // Snap
 ];
 
-// Lutris game library
+// Lutris game library (including Flatpak)
 const LUTRIS_PATHS: &[&str] = &[
+    "~/.local/share/lutris/games",
+    "~/.var/app/net.lutris.Lutris/data/lutris/games",  // Flatpak
     "~/Games",
-    "~/.local/share/lutris",
-    "~/.config/lutris",
 ];
 
-// Heroic Games Launcher (Epic/GOG on Linux)
+// Heroic Games Launcher (Epic/GOG on Linux, including Flatpak)
 const HEROIC_PATHS: &[&str] = &[
     "~/.config/heroic",
-    "~/.var/app/com.heroicgameslauncher.hgl/config/heroic",
+    "~/.var/app/com.heroic.games.launcher/config/heroic",  // Flatpak
 ];
 ```
 

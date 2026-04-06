@@ -7,7 +7,7 @@ fn normalize_path(path: &str) -> String {
     if path.starts_with("\\\\?\\") {
         path
     } else {
-        path
+        format!("\\\\?\\{}", path)
     }
 }
 

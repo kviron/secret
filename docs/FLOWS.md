@@ -15,8 +15,10 @@ Step-by-step implementation flows for core user interactions. Each flow shows th
 ```
 1. UI — `invoke('detect_games')` via game API / feature buttons; listen for detection events.
 2. Rust — `commands::games::detect_games` → `GameDetector::detect_games(on_progress, on_error)`:
-   - Steam: Windows (HKCU SteamPath + manifests) or Linux (`~/.steam/steam`, `~/.local/share/Steam`)
-   - GOG / Epic / Xbox: Windows registry and manifest paths (see docs/modules/game-detector.md)
+   - Steam: Windows (HKCU SteamPath + manifests, case-insensitive VDF) or Linux (~/.steam/steam, ~/.local/share/Steam, Flatpak, Snap + libraryfolders.vdf)
+   - GOG: registry path priority (path > exe > InstallDir); Galaxy DB
+   - Epic / EA Desktop / Ubisoft / Battle.net / Amazon / Xbox: registry and manifest paths (see docs/modules/game-detector.md)
+   - Executable search: root directory first, then recursive subdirectories (depth limit=5)
    - Deduplicate games by `id`
 3. SQLite — `insert_or_update_game` for each result; events `game_detected`, `game_detection_completed`
 4. UI — store updates; dashboard renders cards

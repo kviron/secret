@@ -1,5 +1,9 @@
 pub mod deploy;
+pub mod downloads;
+pub mod extensions;
 pub mod game_content;
+pub mod game_launcher;
 pub mod games;
+pub mod load_order;
 pub mod mods;
 pub mod system;

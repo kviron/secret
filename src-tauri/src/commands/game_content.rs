@@ -1,5 +1,5 @@
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
 use tauri::State;
@@ -9,7 +9,10 @@ use crate::AppState;
 
 /// Plugin-like archives for Gamebryo-style games live under `support_path` (e.g. .../Data).
 #[tauri::command]
-pub async fn list_game_plugins(game_id: String, state: State<'_, AppState>) -> Result<Vec<String>, String> {
+pub async fn list_game_plugins(
+    game_id: String,
+    state: State<'_, AppState>,
+) -> Result<Vec<String>, String> {
     let game = state
         .db
         .find_game(&game_id)?
@@ -123,7 +126,10 @@ pub struct SaveBackupEntry {
 }
 
 #[tauri::command]
-pub async fn list_game_saves(game_id: String, state: State<'_, AppState>) -> Result<Vec<SaveFileEntry>, String> {
+pub async fn list_game_saves(
+    game_id: String,
+    state: State<'_, AppState>,
+) -> Result<Vec<SaveFileEntry>, String> {
     let game = state
         .db
         .find_game(&game_id)?
@@ -193,7 +199,7 @@ pub async fn delete_save(
     fs::remove_file(&path).map_err(|e| format!("Failed to delete save: {}", e))
 }
 
-fn backup_dir_for_game(app_data: &PathBuf, game_id: &str) -> PathBuf {
+fn backup_dir_for_game(app_data: &Path, game_id: &str) -> PathBuf {
     app_data.join("backups").join(game_id).join("saves")
 }
 
@@ -247,8 +253,7 @@ pub async fn restore_save(
         .ok_or_else(|| format!("No saves directory for game: {}", game_id))?;
 
     if !saves_dir.is_dir() {
-        fs::create_dir_all(&saves_dir)
-            .map_err(|e| format!("Failed to create saves dir: {}", e))?;
+        fs::create_dir_all(&saves_dir).map_err(|e| format!("Failed to create saves dir: {}", e))?;
     }
 
     let file_name = src
@@ -339,7 +344,10 @@ fn get_app_data_dir() -> Result<PathBuf, String> {
 }
 
 #[tauri::command]
-pub async fn get_saves_dir_path(game_id: String, state: State<'_, AppState>) -> Result<Option<String>, String> {
+pub async fn get_saves_dir_path(
+    game_id: String,
+    state: State<'_, AppState>,
+) -> Result<Option<String>, String> {
     let _game = state
         .db
         .find_game(&game_id)?

@@ -3,7 +3,7 @@ export const en = {
 
   'nav.games': 'Games',
   'nav.mods': 'Mods',
-  'nav.deployments': 'Deployments',
+  'nav.downloads': 'Downloads',
   'nav.settings': 'Settings',
   'nav.generalSection': 'General',
   'nav.gameMods': 'Mods',
@@ -126,6 +126,10 @@ export const en = {
   'deploymentsPage.title': 'Deployments',
   'deploymentsPage.emptyTitle': 'Deployments',
   'deploymentsPage.emptyDescription': 'Manage mod deployments across your game library.',
+
+  'downloadsPage.title': 'Downloads',
+  'downloadsPage.emptyTitle': 'No active downloads',
+  'downloadsPage.emptyDescription': 'All downloads of mods, plugins, and extensions will appear here.',
 
   'gameDetail.backTitle': 'Back to library',
   'gameDetail.backAria': 'Back to library',

@@ -9,15 +9,70 @@ This documentation is optimized for AI code generation. It provides complete, un
 ```
 docs/
 ├── AI-OPTIMIZED.md           # This file - Master index
+├── ARCHITECTURE.md           # System overview (start here)
 ├── MODELS.md                 # Complete type definitions + Tauri JSON (camelCase) rules
 ├── DATABASE_SCHEMA.md        # Full SQL DDL with migrations + indexes
-├── MODULE_SPECS.md           # Complete module specifications
+├── MODULE_SPECS.md           # Complete module specifications + Phase 2 actual implementation
 ├── FLOWS.md                  # Step-by-step implementation flows
-├── API_REFERENCE.md          # Tauri commands and events
-├── DEEP_LINKS.md            # URL scheme handling (pantheon://)
-├── ARCHITECTURE.md           # System overview (start here)
+├── API_REFERENCE.md          # Tauri commands (implemented + planned)
+├── FEATURE_AUDIT.md          # Feature tracking per page
+├── CROSS_PLATFORM.md         # Cross-platform notes
+├── DEEP_LINKS.md             # URL scheme handling (pantheon://)
+├── MODULE_CONNECTIONS.md     # How modules connect
 └── modules/
-    └── managed-game-context.md  # Managed game store, routes, sidebar (Vortex-style)
+    ├── backup-restore.md
+    ├── database-manager.md
+    ├── dependency-resolution.md
+    ├── deploy-manager.md
+    ├── download-manager.md
+    ├── extension-system.md
+    ├── game-detector.md
+    ├── game-launcher.md
+    ├── load-order-manager.md
+    ├── managed-game-context.md
+    ├── mod-installer.md
+    ├── mod-repository-api.md
+    ├── profile-manager.md
+    ├── security-validation.md
+    ├── ui-structure.md
+    └── update-checker.md
+```
+
+## Source Code Structure
+
+```
+src-tauri/src/
+├── lib.rs                    # AppState, setup, Tauri Builder
+├── models.rs                 # All Rust types (serde derives)
+├── db/
+│   ├── mod.rs                # Database CRUD (rusqlite)
+│   └── migrations/
+│       ├── 001_initial_schema.sql
+│       ├── 002_downloads.sql
+│       └── 003_load_order.sql
+├── services/
+│   ├── game_detector.rs      # Steam/GOG/Epic detection
+│   ├── mod_installer.rs      # Zip extraction
+│   ├── deploy_manager.rs     # Symlink/hardlink/copy
+│   ├── download_manager.rs   # Async downloads with queue
+│   ├── load_order_manager.rs # ESP/ESM/ESL management
+│   ├── game_launcher.rs      # Game process management
+│   └── game_install_stats.rs # Disk usage stats
+├── extensions/
+│   ├── mod.rs                # Module exports
+│   ├── context.rs            # Extension traits + context
+│   ├── registry.rs           # ExtensionRegistry
+│   └── builtin.rs            # SimpleModType, PluginModType
+└── commands/
+    ├── games.rs              # 8 game commands
+    ├── mods.rs               # 4 mod commands
+    ├── deploy.rs             # 4 deploy commands
+    ├── downloads.rs          # 7 download commands
+    ├── load_order.rs         # 8 load order commands
+    ├── game_launcher.rs      # 6 launcher commands
+    ├── game_content.rs       # 7 content commands
+    ├── extensions.rs         # 2 extension commands
+    └── system.rs             # 1 system command
 ```
 
 ## Quick Start for AI

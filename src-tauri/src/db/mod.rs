@@ -3,9 +3,13 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
-use crate::models::{DeploymentState, Game, GameLauncher, Mod, ModFile, ModSupportLevel};
+use crate::models::{
+    DeploymentState, Download, Game, GameLauncher, LoadOrderEntry, Mod, ModFile, ModSupportLevel,
+};
 
 const MIGRATION_001: &str = include_str!("migrations/001_initial_schema.sql");
+const MIGRATION_002: &str = include_str!("migrations/002_downloads.sql");
+const MIGRATION_003: &str = include_str!("migrations/003_load_order.sql");
 
 #[derive(Debug, Clone)]
 pub struct Database {
@@ -94,6 +98,12 @@ impl Database {
             [],
         )
         .map_err(|e| e.to_string())?;
+
+        conn.execute_batch(MIGRATION_002)
+            .map_err(|e| format!("Migration 002 failed: {}", e))?;
+
+        conn.execute_batch(MIGRATION_003)
+            .map_err(|e| format!("Migration 003 failed: {}", e))?;
 
         Ok(())
     }
@@ -465,6 +475,207 @@ impl Database {
         let conn = self.conn.lock().map_err(|e| e.to_string())?;
         conn.execute("DELETE FROM deployment WHERE mod_id = ?1", params![mod_id])
             .map_err(|e| e.to_string())?;
+        Ok(())
+    }
+
+    // === Downloads ===
+
+    pub fn insert_download(&self, dl: &Download) -> Result<(), String> {
+        let conn = self.conn.lock().map_err(|e| e.to_string())?;
+        conn.execute(
+            "INSERT OR REPLACE INTO downloads
+             (id, url, file_name, destination, game_id, total_bytes, downloaded_bytes, state, error, created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+            params![
+                dl.id,
+                dl.url,
+                dl.file_name,
+                dl.destination,
+                dl.game_id,
+                dl.total_bytes as i64,
+                dl.downloaded_bytes as i64,
+                dl.state,
+                dl.error,
+                dl.created_at,
+                dl.updated_at,
+            ],
+        )
+        .map_err(|e| e.to_string())?;
+        Ok(())
+    }
+
+    pub fn update_download_progress(
+        &self,
+        id: &str,
+        downloaded_bytes: u64,
+        total_bytes: u64,
+        state: &str,
+        error: Option<&str>,
+    ) -> Result<(), String> {
+        let conn = self.conn.lock().map_err(|e| e.to_string())?;
+        conn.execute(
+            "UPDATE downloads SET downloaded_bytes = ?1, total_bytes = ?2, state = ?3, error = ?4, updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = ?5",
+            params![downloaded_bytes as i64, total_bytes as i64, state, error, id],
+        )
+        .map_err(|e| e.to_string())?;
+        Ok(())
+    }
+
+    pub fn find_download(&self, id: &str) -> Result<Option<Download>, String> {
+        let conn = self.conn.lock().map_err(|e| e.to_string())?;
+        let mut stmt = conn
+            .prepare(
+                "SELECT id, url, file_name, destination, game_id, total_bytes, downloaded_bytes, state, error, created_at, updated_at
+                 FROM downloads WHERE id = ?1",
+            )
+            .map_err(|e| e.to_string())?;
+        let dl = stmt
+            .query_row(params![id], |row| {
+                Ok(Download {
+                    id: row.get(0)?,
+                    url: row.get(1)?,
+                    file_name: row.get(2)?,
+                    destination: row.get(3)?,
+                    game_id: row.get(4)?,
+                    total_bytes: row.get::<_, i64>(5)? as u64,
+                    downloaded_bytes: row.get::<_, i64>(6)? as u64,
+                    state: row.get(7)?,
+                    error: row.get(8)?,
+                    created_at: row.get(9)?,
+                    updated_at: row.get(10)?,
+                })
+            })
+            .optional()
+            .map_err(|e| e.to_string())?;
+        Ok(dl)
+    }
+
+    pub fn list_downloads(&self) -> Result<Vec<Download>, String> {
+        let conn = self.conn.lock().map_err(|e| e.to_string())?;
+        let mut stmt = conn
+            .prepare(
+                "SELECT id, url, file_name, destination, game_id, total_bytes, downloaded_bytes, state, error, created_at, updated_at
+                 FROM downloads ORDER BY created_at DESC",
+            )
+            .map_err(|e| e.to_string())?;
+        let dls = stmt
+            .query_map([], |row| {
+                Ok(Download {
+                    id: row.get(0)?,
+                    url: row.get(1)?,
+                    file_name: row.get(2)?,
+                    destination: row.get(3)?,
+                    game_id: row.get(4)?,
+                    total_bytes: row.get::<_, i64>(5)? as u64,
+                    downloaded_bytes: row.get::<_, i64>(6)? as u64,
+                    state: row.get(7)?,
+                    error: row.get(8)?,
+                    created_at: row.get(9)?,
+                    updated_at: row.get(10)?,
+                })
+            })
+            .map_err(|e| e.to_string())?;
+        dls.collect::<Result<Vec<_>, _>>()
+            .map_err(|e| e.to_string())
+    }
+
+    pub fn list_active_downloads(&self) -> Result<Vec<Download>, String> {
+        let conn = self.conn.lock().map_err(|e| e.to_string())?;
+        let mut stmt = conn
+            .prepare(
+                "SELECT id, url, file_name, destination, game_id, total_bytes, downloaded_bytes, state, error, created_at, updated_at
+                 FROM downloads WHERE state IN ('pending', 'downloading', 'paused') ORDER BY created_at ASC",
+            )
+            .map_err(|e| e.to_string())?;
+        let dls = stmt
+            .query_map([], |row| {
+                Ok(Download {
+                    id: row.get(0)?,
+                    url: row.get(1)?,
+                    file_name: row.get(2)?,
+                    destination: row.get(3)?,
+                    game_id: row.get(4)?,
+                    total_bytes: row.get::<_, i64>(5)? as u64,
+                    downloaded_bytes: row.get::<_, i64>(6)? as u64,
+                    state: row.get(7)?,
+                    error: row.get(8)?,
+                    created_at: row.get(9)?,
+                    updated_at: row.get(10)?,
+                })
+            })
+            .map_err(|e| e.to_string())?;
+        dls.collect::<Result<Vec<_>, _>>()
+            .map_err(|e| e.to_string())
+    }
+
+    pub fn delete_download(&self, id: &str) -> Result<(), String> {
+        let conn = self.conn.lock().map_err(|e| e.to_string())?;
+        conn.execute("DELETE FROM downloads WHERE id = ?1", params![id])
+            .map_err(|e| e.to_string())?;
+        Ok(())
+    }
+
+    // === Load Order ===
+
+    pub fn upsert_load_order_entry(&self, entry: &LoadOrderEntry) -> Result<(), String> {
+        let conn = self.conn.lock().map_err(|e| e.to_string())?;
+        conn.execute(
+            "INSERT OR REPLACE INTO load_order
+             (game_id, plugin_name, load_order_index, enabled, plugin_type)
+             VALUES (?1, ?2, ?3, ?4, ?5)",
+            params![
+                entry.game_id,
+                entry.plugin_name,
+                entry.load_order_index,
+                if entry.enabled { 1 } else { 0 },
+                entry.plugin_type,
+            ],
+        )
+        .map_err(|e| e.to_string())?;
+        Ok(())
+    }
+
+    pub fn get_load_order(&self, game_id: &str) -> Result<Vec<LoadOrderEntry>, String> {
+        let conn = self.conn.lock().map_err(|e| e.to_string())?;
+        let mut stmt = conn
+            .prepare(
+                "SELECT game_id, plugin_name, load_order_index, enabled, plugin_type
+                 FROM load_order WHERE game_id = ?1 ORDER BY load_order_index ASC",
+            )
+            .map_err(|e| e.to_string())?;
+        let entries = stmt
+            .query_map(params![game_id], |row| {
+                Ok(LoadOrderEntry {
+                    game_id: row.get(0)?,
+                    plugin_name: row.get(1)?,
+                    load_order_index: row.get::<_, i64>(2)? as u32,
+                    enabled: row.get::<_, i32>(3)? == 1,
+                    plugin_type: row.get(4)?,
+                })
+            })
+            .map_err(|e| e.to_string())?;
+        entries
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| e.to_string())
+    }
+
+    pub fn delete_load_order_entry(&self, game_id: &str, plugin_name: &str) -> Result<(), String> {
+        let conn = self.conn.lock().map_err(|e| e.to_string())?;
+        conn.execute(
+            "DELETE FROM load_order WHERE game_id = ?1 AND plugin_name = ?2",
+            params![game_id, plugin_name],
+        )
+        .map_err(|e| e.to_string())?;
+        Ok(())
+    }
+
+    pub fn clear_load_order(&self, game_id: &str) -> Result<(), String> {
+        let conn = self.conn.lock().map_err(|e| e.to_string())?;
+        conn.execute(
+            "DELETE FROM load_order WHERE game_id = ?1",
+            params![game_id],
+        )
+        .map_err(|e| e.to_string())?;
         Ok(())
     }
 }

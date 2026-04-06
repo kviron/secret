@@ -6,321 +6,276 @@ Complete SQL DDL for SQLite database with all tables, indexes, triggers, and mig
 
 ## Schema Version
 
-Current schema version: **1**
+Current schema version: **3** (3 migrations applied)
 
-## Migrations
+## Actually Implemented Migrations
 
 Migrations are stored in `src-tauri/src/db/migrations/` as numbered SQL files.
 
-### 001_initial_schema.sql
+### 001_initial_schema.sql (Implemented)
 
 ```sql
--- Enable foreign keys
 PRAGMA foreign_keys = ON;
 
 -- Games table
-CREATE TABLE games (
+CREATE TABLE IF NOT EXISTS games (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
-    installPath TEXT NOT NULL,
-    supportPath TEXT NOT NULL,
-    launcher TEXT NOT NULL CHECK (launcher IN ('steam', 'gog', 'epic', 'xbox', 'origin', 'manual')),
-    extensionId TEXT,
-    supportedModTypes TEXT DEFAULT '[]',
-    mergeMods INTEGER DEFAULT 0,
-    details TEXT DEFAULT '{}',
-    createdAt TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
-    updatedAt TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+    install_path TEXT NOT NULL,
+    support_path TEXT NOT NULL,
+    launcher TEXT NOT NULL,
+    created_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+    updated_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
 );
 
-CREATE INDEX idx_games_launcher ON games(launcher);
-CREATE INDEX idx_games_extension ON games(extensionId);
+CREATE INDEX IF NOT EXISTS idx_games_launcher ON games(launcher);
 
 -- Mods table
-CREATE TABLE mods (
+CREATE TABLE IF NOT EXISTS mods (
     id TEXT PRIMARY KEY,
-    gameId TEXT NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+    game_id TEXT NOT NULL REFERENCES games(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
     version TEXT,
     category TEXT,
-    modType TEXT NOT NULL CHECK (modType IN ('simple', 'fomod', 'foomad', 'bsat', 'bepinex', 'dazip', 'enb', 'scriptExtender', 'modPlugin')),
-    installPath TEXT NOT NULL,
+    mod_type TEXT NOT NULL DEFAULT 'simple',
+    install_path TEXT NOT NULL,
     enabled INTEGER DEFAULT 1,
     flags TEXT DEFAULT '[]',
     attributes TEXT DEFAULT '{}',
-    installTime TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
-    lastModified TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+    install_time TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+    last_modified TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
     metadata TEXT,
     conflicts TEXT DEFAULT '[]',
     dependencies TEXT DEFAULT '[]',
-    UNIQUE(gameId, name)
+    UNIQUE(game_id, name)
 );
 
-CREATE INDEX idx_mods_game ON mods(gameId);
-CREATE INDEX idx_mods_type ON mods(modType);
-CREATE INDEX idx_mods_enabled ON mods(enabled);
+CREATE INDEX IF NOT EXISTS idx_mods_game ON mods(game_id);
+CREATE INDEX IF NOT EXISTS idx_mods_type ON mods(mod_type);
+CREATE INDEX IF NOT EXISTS idx_mods_enabled ON mods(enabled);
 
 -- Mod files table
-CREATE TABLE modFiles (
+CREATE TABLE IF NOT EXISTS mod_files (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    modId TEXT NOT NULL REFERENCES mods(id) ON DELETE CASCADE,
+    mod_id TEXT NOT NULL REFERENCES mods(id) ON DELETE CASCADE,
     path TEXT NOT NULL,
     size INTEGER NOT NULL,
     hash TEXT,
-    isArchive INTEGER DEFAULT 0,
-    UNIQUE(modId, path)
+    is_archive INTEGER DEFAULT 0,
+    UNIQUE(mod_id, path)
 );
 
-CREATE INDEX idx_modFiles_mod ON modFiles(modId);
-CREATE INDEX idx_modFiles_hash ON modFiles(hash);
+CREATE INDEX IF NOT EXISTS idx_mod_files_mod ON mod_files(mod_id);
+CREATE INDEX IF NOT EXISTS idx_mod_files_hash ON mod_files(hash);
 
 -- Deployment state table
-CREATE TABLE deployment (
+CREATE TABLE IF NOT EXISTS deployment (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    modId TEXT NOT NULL UNIQUE REFERENCES mods(id) ON DELETE CASCADE,
-    gameId TEXT NOT NULL REFERENCES games(id) ON DELETE CASCADE,
-    status TEXT NOT NULL CHECK (status IN ('pending', 'deployed', 'partiallyDeployed', 'failed', 'conflict')),
-    strategy TEXT NOT NULL CHECK (strategy IN ('symlink', 'hardlink', 'copy', 'merge')),
-    deployedFiles TEXT DEFAULT '[]',
+    mod_id TEXT NOT NULL UNIQUE REFERENCES mods(id) ON DELETE CASCADE,
+    game_id TEXT NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+    status TEXT NOT NULL DEFAULT 'pending',
+    strategy TEXT NOT NULL DEFAULT 'symlink',
+    deployed_files TEXT DEFAULT '[]',
     conflicts TEXT DEFAULT '[]',
-    deployedAt TEXT,
-    createdAt TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
-    updatedAt TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+    deployed_at TEXT,
+    created_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+    updated_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
 );
 
-CREATE INDEX idx_deployment_game ON deployment(gameId);
-CREATE INDEX idx_deployment_status ON deployment(status);
+CREATE INDEX IF NOT EXISTS idx_deployment_game ON deployment(game_id);
+CREATE INDEX IF NOT EXISTS idx_deployment_status ON deployment(status);
 
--- Load order table
-CREATE TABLE loadOrder (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    gameId TEXT NOT NULL REFERENCES games(id) ON DELETE CASCADE,
-    pluginName TEXT NOT NULL,
-    loadOrderIndex INTEGER NOT NULL,
-    enabled INTEGER DEFAULT 1,
-    groupName TEXT,
-    UNIQUE(gameId, pluginName)
+-- Schema migrations table
+CREATE TABLE IF NOT EXISTS schema_migrations (
+    version INTEGER PRIMARY KEY,
+    applied_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
 );
 
-CREATE INDEX idx_loadOrder_game ON loadOrder(gameId);
-CREATE INDEX idx_loadOrder_index ON loadOrder(loadOrderIndex);
+INSERT OR IGNORE INTO schema_migrations (version) VALUES (1);
 
--- Plugins table (for detailed plugin info - Bethesda games)
-CREATE TABLE plugins (
+-- Triggers
+CREATE TRIGGER IF NOT EXISTS games_updated_at AFTER UPDATE ON games
+BEGIN
+    UPDATE games SET updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = NEW.id;
+END;
+
+CREATE TRIGGER IF NOT EXISTS mods_updated_at AFTER UPDATE ON mods
+BEGIN
+    UPDATE mods SET last_modified = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = NEW.id;
+END;
+
+CREATE TRIGGER IF NOT EXISTS deployment_updated_at AFTER UPDATE ON deployment
+BEGIN
+    UPDATE deployment SET updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = NEW.id;
+END;
+```
+
+**Note:** Column `extension_id`, `supported_mod_types`, `merge_mods`, `details`, `mod_support` are added dynamically via `add_missing_columns()` in `db::migrate()` if absent.
+
+### 002_downloads.sql (Implemented)
+
+```sql
+CREATE TABLE IF NOT EXISTS downloads (
     id TEXT PRIMARY KEY,
-    gameId TEXT NOT NULL REFERENCES games(id) ON DELETE CASCADE,
-    filePath TEXT NOT NULL,
-    isMaster INTEGER DEFAULT 0,
-    isLight INTEGER DEFAULT 0,
-    isMedium INTEGER DEFAULT 0,
-    isDummy INTEGER DEFAULT 0,
+    url TEXT NOT NULL,
+    file_name TEXT NOT NULL,
+    destination TEXT NOT NULL,
+    game_id TEXT,
+    total_bytes INTEGER DEFAULT 0,
+    downloaded_bytes INTEGER DEFAULT 0,
+    state TEXT NOT NULL DEFAULT 'pending',
+    error TEXT,
+    created_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+    updated_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_downloads_state ON downloads(state);
+CREATE INDEX IF NOT EXISTS idx_downloads_game ON downloads(game_id);
+
+CREATE TRIGGER IF NOT EXISTS downloads_updated_at AFTER UPDATE ON downloads
+BEGIN
+    UPDATE downloads SET updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = NEW.id;
+END;
+```
+
+### 003_load_order.sql (Implemented)
+
+```sql
+CREATE TABLE IF NOT EXISTS load_order (
+    game_id TEXT NOT NULL,
+    plugin_name TEXT NOT NULL,
+    load_order_index INTEGER NOT NULL DEFAULT 0,
+    enabled INTEGER DEFAULT 1,
+    plugin_type TEXT NOT NULL DEFAULT 'esp',
+    updated_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+    PRIMARY KEY (game_id, plugin_name)
+);
+
+CREATE INDEX IF NOT EXISTS idx_load_order_game ON load_order(game_id);
+CREATE INDEX IF NOT EXISTS idx_load_order_index ON load_order(game_id, load_order_index);
+
+CREATE TRIGGER IF NOT EXISTS load_order_updated_at AFTER UPDATE ON load_order
+BEGIN
+    UPDATE load_order SET updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE game_id = NEW.game_id AND plugin_name = NEW.plugin_name;
+END;
+```
+
+## Planned Tables (Future Phases)
+
+### 004_plugins.sql (Phase 3)
+
+```sql
+-- Plugins table (for detailed plugin info - Bethesda games)
+CREATE TABLE IF NOT EXISTS plugins (
+    id TEXT PRIMARY KEY,
+    game_id TEXT NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+    file_path TEXT NOT NULL,
+    is_master INTEGER DEFAULT 0,
+    is_light INTEGER DEFAULT 0,
+    is_medium INTEGER DEFAULT 0,
+    is_dummy INTEGER DEFAULT 0,
     author TEXT,
     description TEXT,
-    masterList TEXT DEFAULT '[]',
+    master_list TEXT DEFAULT '[]',
     revision INTEGER DEFAULT 0,
-    loadOrderIndex INTEGER,
+    load_order_index INTEGER,
     hash TEXT,
     size INTEGER,
-    createdAt TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
-    updatedAt TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
-    UNIQUE(gameId, filePath)
+    created_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+    updated_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+    UNIQUE(game_id, file_path)
 );
 
-CREATE INDEX idx_plugins_game ON plugins(gameId);
-CREATE INDEX idx_plugins_loadOrder ON plugins(loadOrderIndex);
+CREATE INDEX IF NOT EXISTS idx_plugins_game ON plugins(game_id);
+CREATE INDEX IF NOT EXISTS idx_plugins_loadOrder ON plugins(load_order_index);
+```
 
--- Plugin groups table
-CREATE TABLE pluginGroups (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    gameId TEXT NOT NULL REFERENCES games(id) ON DELETE CASCADE,
-    name TEXT NOT NULL,
-    after TEXT DEFAULT '[]',
-    description TEXT,
-    UNIQUE(gameId, name)
-);
+### 005_profiles.sql (Phase 4)
 
--- Userlist rules table
-CREATE TABLE userlistRules (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    gameId TEXT NOT NULL REFERENCES games(id) ON DELETE CASCADE,
-    pluginName TEXT NOT NULL,
-    after TEXT DEFAULT '[]',
-    require TEXT DEFAULT '[]',
-    warn TEXT DEFAULT '[]',
-    hide INTEGER DEFAULT 0,
-    groupName TEXT,
-    UNIQUE(gameId, pluginName)
-);
-
--- Download queue table
-CREATE TABLE downloads (
+```sql
+CREATE TABLE IF NOT EXISTS profiles (
     id TEXT PRIMARY KEY,
-    fileName TEXT NOT NULL,
-    url TEXT NOT NULL,
-    destination TEXT NOT NULL,
-    state TEXT NOT NULL DEFAULT 'pending' CHECK (state IN ('pending', 'downloading', 'paused', 'completed', 'failed')),
-    bytesWritten INTEGER DEFAULT 0,
-    bytesTotal INTEGER,
-    etag TEXT,
-    createdAt TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
-    completedAt TEXT,
-    error TEXT
-);
-
-CREATE INDEX idx_downloads_state ON downloads(state);
-
--- Profiles table
-CREATE TABLE profiles (
-    id TEXT PRIMARY KEY,
-    gameId TEXT NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+    game_id TEXT NOT NULL REFERENCES games(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
-    modState TEXT DEFAULT '{}',
-    createdAt TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
-    updatedAt TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
-    UNIQUE(gameId, name)
+    mod_state TEXT DEFAULT '{}',
+    created_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+    updated_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+    UNIQUE(game_id, name)
 );
 
-CREATE INDEX idx_profiles_game ON profiles(gameId);
+CREATE INDEX IF NOT EXISTS idx_profiles_game ON profiles(game_id);
+```
 
--- Settings table
-CREATE TABLE settings (
-    key TEXT PRIMARY KEY,
-    value TEXT NOT NULL,
-    updatedAt TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+### 006_backups.sql (Phase 4)
+
+```sql
+CREATE TABLE IF NOT EXISTS backups (
+    id TEXT PRIMARY KEY,
+    game_id TEXT NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+    type TEXT NOT NULL,
+    source_path TEXT NOT NULL,
+    backup_path TEXT NOT NULL,
+    size INTEGER,
+    created_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
 );
 
--- Extensions registry table
-CREATE TABLE extensions (
+CREATE INDEX IF NOT EXISTS idx_backups_game ON backups(game_id);
+```
+
+### 007_extensions.sql (Phase 3)
+
+```sql
+CREATE TABLE IF NOT EXISTS extensions (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
     version TEXT NOT NULL,
     enabled INTEGER DEFAULT 1,
     config TEXT DEFAULT '{}',
-    installedAt TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+    installed_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
 );
-
--- Backups table
-CREATE TABLE backups (
-    id TEXT PRIMARY KEY,
-    gameId TEXT NOT NULL REFERENCES games(id) ON DELETE CASCADE,
-    type TEXT NOT NULL CHECK (type IN ('full', 'saves', 'config', 'mods')),
-    sourcePath TEXT NOT NULL,
-    backupPath TEXT NOT NULL,
-    size INTEGER,
-    createdAt TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
-);
-
-CREATE INDEX idx_backups_game ON backups(gameId);
-CREATE INDEX idx_backups_type ON backups(type);
-
--- Schema migrations table
-CREATE TABLE schemaMigrations (
-    version INTEGER PRIMARY KEY,
-    appliedAt TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
-);
-
--- Insert initial migration record
-INSERT INTO schemaMigrations (version) VALUES (1);
-
--- Triggers for updatedAt auto-update
-CREATE TRIGGER games_updated_at AFTER UPDATE ON games
-BEGIN
-    UPDATE games SET updatedAt = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = NEW.id;
-END;
-
-CREATE TRIGGER mods_updated_at AFTER UPDATE ON mods
-BEGIN
-    UPDATE mods SET lastModified = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = NEW.id;
-END;
-
-CREATE TRIGGER deployment_updated_at AFTER UPDATE ON deployment
-BEGIN
-    UPDATE deployment SET updatedAt = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = NEW.id;
-END;
-
-CREATE TRIGGER plugins_updated_at AFTER UPDATE ON plugins
-BEGIN
-    UPDATE plugins SET updatedAt = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = NEW.id;
-END;
-
-CREATE TRIGGER profiles_updated_at AFTER UPDATE ON profiles
-BEGIN
-    UPDATE profiles SET updatedAt = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = NEW.id;
-END;
 ```
 
-### 002_add_validation_tables.sql
+### 008_masterlist.sql (Phase 3)
 
 ```sql
--- Validation results table
-CREATE TABLE validationResults (
+CREATE TABLE IF NOT EXISTS masterlist (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    modId TEXT NOT NULL REFERENCES mods(id) ON DELETE CASCADE,
-    isValid INTEGER NOT NULL,
-    issues TEXT DEFAULT '[]',
-    scannedAt TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
-    UNIQUE(modId)
-);
-
-CREATE INDEX idx_validationResults_mod ON validationResults(modId);
-
--- Mod updates table
-CREATE TABLE modUpdates (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    modId TEXT NOT NULL REFERENCES mods(id) ON DELETE CASCADE,
-    currentVersion TEXT NOT NULL,
-    newVersion TEXT NOT NULL,
-    downloadUrl TEXT,
-    notifiedAt TEXT,
-    UNIQUE(modId)
-);
-
-CREATE INDEX idx_modUpdates_mod ON modUpdates(modId);
-```
-
-### 003_add_masterlist_tables.sql
-
-```sql
--- Masterlist table
-CREATE TABLE masterlist (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    gameId TEXT NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+    game_id TEXT NOT NULL REFERENCES games(id) ON DELETE CASCADE,
     globals TEXT DEFAULT '[]',
     plugins TEXT DEFAULT '[]',
     groups TEXT DEFAULT '[]',
-    updatedAt TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
-    UNIQUE(gameId)
+    updated_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+    UNIQUE(game_id)
 );
 
-CREATE INDEX idx_masterlist_game ON masterlist(gameId);
+CREATE INDEX IF NOT EXISTS idx_masterlist_game ON masterlist(game_id);
 ```
 
-## Index Summary
+## Index Summary (Implemented)
 
 | Table | Index Name | Columns | Purpose |
 |-------|------------|---------|---------|
 | games | idx_games_launcher | launcher | Find games by launcher |
-| games | idx_games_extension | extensionId | Find games by extension |
-| mods | idx_mods_game | gameId | Find mods by game |
-| mods | idx_mods_type | modType | Find mods by type |
+| mods | idx_mods_game | game_id | Find mods by game |
+| mods | idx_mods_type | mod_type | Find mods by type |
 | mods | idx_mods_enabled | enabled | Filter enabled mods |
-| modFiles | idx_modFiles_mod | modId | Find files by mod |
-| modFiles | idx_modFiles_hash | hash | Find files by hash |
-| deployment | idx_deployment_game | gameId | Find deployments by game |
+| mod_files | idx_mod_files_mod | mod_id | Find files by mod |
+| mod_files | idx_mod_files_hash | hash | Find files by hash |
+| deployment | idx_deployment_game | game_id | Find deployments by game |
 | deployment | idx_deployment_status | status | Filter by status |
-| loadOrder | idx_loadOrder_game | gameId | Find load order by game |
-| loadOrder | idx_loadOrder_index | loadOrderIndex | Sort by order |
-| plugins | idx_plugins_game | gameId | Find plugins by game |
-| plugins | idx_plugins_loadOrder | loadOrderIndex | Sort plugins |
-| pluginGroups | (unique) | (gameId, name) | Unique group per game |
-| userlistRules | (unique) | (gameId, pluginName) | Unique rule per plugin |
 | downloads | idx_downloads_state | state | Filter downloads |
-| profiles | idx_profiles_game | gameId | Find profiles by game |
-| backups | idx_backups_game | gameId | Find backups by game |
-| backups | idx_backups_type | type | Filter by backup type |
-| validationResults | idx_validationResults_mod | modId | Find validation by mod |
-| modUpdates | idx_modUpdates_mod | modId | Find update by mod |
-| masterlist | idx_masterlist_game | gameId | Find masterlist by game |
+| downloads | idx_downloads_game | game_id | Filter downloads by game |
+| load_order | idx_load_order_game | game_id | Find load order by game |
+| load_order | idx_load_order_index | (game_id, load_order_index) | Sort by order |
+
+## Planned Index Summary (Future)
+
+| Table | Index Name | Columns | Purpose |
+|-------|------------|---------|---------|
+| plugins | idx_plugins_game | game_id | Find plugins by game |
+| profiles | idx_profiles_game | game_id | Find profiles by game |
+| backups | idx_backups_game | game_id | Find backups by game |
+| masterlist | idx_masterlist_game | game_id | Find masterlist by game |
 
 ## JSON Column Formats
 

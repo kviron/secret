@@ -1,5 +1,10 @@
 pub mod deploy_manager;
+pub mod download_manager;
+pub mod fomod_parser;
 pub mod game_detector;
 pub mod game_install_stats;
+pub mod game_launcher;
+pub mod load_order_manager;
 pub mod mod_installer;
 pub mod pe_version;
+pub mod security_validator;

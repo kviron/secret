@@ -185,20 +185,49 @@ pub struct DeploymentState {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct DeployedFile {
     pub source: String,
     pub target: String,
     pub size: u64,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum DeployStrategy {
+    #[default]
+    Auto,
+    Symlink,
+    Hardlink,
+    Copy,
+}
+
+impl DeployStrategy {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            DeployStrategy::Auto => "auto",
+            DeployStrategy::Symlink => "symlink",
+            DeployStrategy::Hardlink => "hardlink",
+            DeployStrategy::Copy => "copy",
+        }
+    }
+
+    pub fn from_str(s: &str) -> Self {
+        match s {
+            "symlink" => DeployStrategy::Symlink,
+            "hardlink" => DeployStrategy::Hardlink,
+            "copy" => DeployStrategy::Copy,
+            _ => DeployStrategy::Auto,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct DetectionProgress {
-    pub message: String,
-    pub found: usize,
-    pub total: usize,
-    #[serde(alias = "current_game")]
-    pub current_game: Option<String>,
+pub struct Conflict {
+    pub file_path: String,
+    pub mod_a: String,
+    pub mod_b: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -217,4 +246,342 @@ pub struct GameDetectionError {
     pub game_name: String,
     pub error: String,
     pub recoverable: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DetectionProgress {
+    pub message: String,
+    pub found: usize,
+    pub total: usize,
+    #[serde(alias = "current_game")]
+    pub current_game: Option<String>,
+}
+
+// --- Downloads ---
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum DownloadState {
+    #[default]
+    Pending,
+    Downloading,
+    Paused,
+    Completed,
+    Failed,
+    Cancelled,
+}
+
+impl DownloadState {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            DownloadState::Pending => "pending",
+            DownloadState::Downloading => "downloading",
+            DownloadState::Paused => "paused",
+            DownloadState::Completed => "completed",
+            DownloadState::Failed => "failed",
+            DownloadState::Cancelled => "cancelled",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Download {
+    pub id: String,
+    pub url: String,
+    pub file_name: String,
+    pub destination: String,
+    pub game_id: Option<String>,
+    pub total_bytes: u64,
+    pub downloaded_bytes: u64,
+    pub state: String,
+    pub error: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DownloadProgress {
+    pub download_id: String,
+    pub downloaded_bytes: u64,
+    pub total_bytes: u64,
+    pub speed_bps: f64,
+    pub percent: f64,
+    pub state: String,
+}
+
+// --- Load Order ---
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum PluginType {
+    #[default]
+    Esp,
+    Esm,
+    Esl,
+}
+
+impl PluginType {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            PluginType::Esp => "esp",
+            PluginType::Esm => "esm",
+            PluginType::Esl => "esl",
+        }
+    }
+
+    pub fn from_extension(ext: &str) -> Option<Self> {
+        match ext.to_ascii_lowercase().as_str() {
+            "esp" => Some(PluginType::Esp),
+            "esm" => Some(PluginType::Esm),
+            "esl" => Some(PluginType::Esl),
+            _ => None,
+        }
+    }
+
+    /// Sort priority: ESM < ESL < ESP
+    pub fn sort_priority(&self) -> u32 {
+        match self {
+            PluginType::Esm => 0,
+            PluginType::Esl => 1,
+            PluginType::Esp => 2,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PluginInfo {
+    pub name: String,
+    pub plugin_type: String,
+    pub enabled: bool,
+    pub load_order: u32,
+    pub is_ghost: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LoadOrderEntry {
+    pub game_id: String,
+    pub plugin_name: String,
+    pub load_order_index: u32,
+    pub enabled: bool,
+    pub plugin_type: String,
+}
+
+// --- Extensions ---
+
+#[allow(dead_code)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum ExtensionType {
+    #[default]
+    Game,
+    ModType,
+    Installer,
+    Feature,
+}
+
+impl ExtensionType {
+    #[allow(dead_code)]
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            ExtensionType::Game => "game",
+            ExtensionType::ModType => "modtype",
+            ExtensionType::Installer => "installer",
+            ExtensionType::Feature => "feature",
+        }
+    }
+}
+
+#[allow(dead_code)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExtensionManifest {
+    pub id: String,
+    pub name: String,
+    pub version: String,
+    pub extension_type: String,
+    pub description: Option<String>,
+    pub author: Option<String>,
+    pub runtime: RuntimeDeps,
+    pub detection: Option<GameDetectionConfig>,
+    pub mod_paths: Option<std::collections::HashMap<String, String>>,
+    pub merge_mods: Option<bool>,
+    pub supported_mod_types: Option<Vec<String>>,
+}
+
+#[allow(dead_code)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct RuntimeDeps {
+    pub requires: Vec<String>,
+    pub optional: Vec<String>,
+}
+
+#[allow(dead_code)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GameDetectionConfig {
+    pub steam_app_id: Option<String>,
+    pub gog_game_id: Option<String>,
+    pub epic_offer_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExtensionInfo {
+    pub id: String,
+    pub name: String,
+    pub version: String,
+    pub extension_type: String,
+    pub enabled: bool,
+    pub description: Option<String>,
+    pub author: Option<String>,
+}
+
+#[allow(dead_code)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RegisteredGame {
+    pub id: String,
+    pub extension_id: String,
+    pub name: String,
+    pub supported_mod_types: Vec<String>,
+    pub merge_mods: bool,
+}
+
+#[allow(dead_code)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ModTypeHandlerModel {
+    pub id: String,
+    pub extension_id: String,
+    pub priority: i32,
+}
+
+#[allow(dead_code)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct InstallerHandlerModel {
+    pub id: String,
+    pub extension_id: String,
+    pub priority: i32,
+}
+
+// --- Game Launcher ---
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LoaderInfo {
+    pub loader_id: String,
+    pub loader_type: String,
+    pub executable: String,
+    pub version: Option<String>,
+    pub installed: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RunningGame {
+    pub game_id: String,
+    pub process_id: u32,
+    pub started_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LaunchResult {
+    pub process_id: u32,
+    pub loader_used: Option<String>,
+}
+
+// --- FOMOD ---
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FomodInfo {
+    pub module_name: String,
+    pub version: Option<String>,
+    pub author: Option<String>,
+    pub description: Option<String>,
+    pub groups: Vec<FomodGroup>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FomodGroup {
+    pub name: String,
+    pub options: Vec<FomodOption>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FomodOption {
+    pub name: String,
+    pub description: Option<String>,
+    pub image: Option<String>,
+    pub files: Vec<FomodFileEntry>,
+    pub selected: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FomodFileEntry {
+    pub source: String,
+    pub destination: Option<String>,
+    pub priority: Option<i32>,
+    pub is_folder: bool,
+}
+
+#[allow(dead_code)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FomodInstallResult {
+    pub files: Vec<FomodFileEntry>,
+    pub installed_options: Vec<String>,
+}
+
+// --- Security ---
+
+#[allow(dead_code)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ThreatSeverity {
+    Critical,
+    High,
+    Medium,
+    Low,
+    Info,
+}
+
+#[allow(dead_code)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ThreatType {
+    PathTraversal,
+    SuspiciousExtension,
+    OversizedFile,
+    UnsignedPlugin,
+    MaliciousPattern,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ThreatInfo {
+    pub threat_type: String,
+    pub file_path: String,
+    pub severity: String,
+    pub description: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ValidationResult {
+    pub is_valid: bool,
+    pub threats: Vec<ThreatInfo>,
+    pub file_count: usize,
+    pub total_size: u64,
 }

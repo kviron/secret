@@ -302,7 +302,7 @@ pub const KNOWN_GAMES: &[GameDefinition] = &[
         steam_app_id: 413150,
         executables: &["StardewValley.exe", "StardewModdingAPI.exe"],
         mod_support: ModSupportLevel::Partial,
-        supported_mod_types: &["simple", "bepinex", "foomad"],
+        supported_mod_types: &["simple", "bepinex", "fomod"],
         merge_mods: false,
         support_path_suffix: "Mods",
     },
@@ -371,6 +371,87 @@ pub const KNOWN_GAMES: &[GameDefinition] = &[
         name: "Manor Lords",
         steam_app_id: 1363080,
         executables: &["ManorLords-Win64-Shipping.exe"],
+        mod_support: ModSupportLevel::None,
+        supported_mod_types: &[],
+        merge_mods: false,
+        support_path_suffix: "",
+    },
+    // Blizzard / Battle.net games
+    GameDefinition {
+        id: "overwatch2",
+        name: "Overwatch 2",
+        steam_app_id: 0,
+        executables: &["Overwatch Launcher.exe"],
+        mod_support: ModSupportLevel::None,
+        supported_mod_types: &[],
+        merge_mods: false,
+        support_path_suffix: "",
+    },
+    GameDefinition {
+        id: "diablo4",
+        name: "Diablo IV",
+        steam_app_id: 0,
+        executables: &["Diablo IV.exe"],
+        mod_support: ModSupportLevel::None,
+        supported_mod_types: &[],
+        merge_mods: false,
+        support_path_suffix: "",
+    },
+    GameDefinition {
+        id: "diablo2r",
+        name: "Diablo II: Resurrected",
+        steam_app_id: 0,
+        executables: &["D2R.exe"],
+        mod_support: ModSupportLevel::None,
+        supported_mod_types: &[],
+        merge_mods: false,
+        support_path_suffix: "",
+    },
+    GameDefinition {
+        id: "diablo3",
+        name: "Diablo III",
+        steam_app_id: 0,
+        executables: &["Diablo III.exe"],
+        mod_support: ModSupportLevel::None,
+        supported_mod_types: &[],
+        merge_mods: false,
+        support_path_suffix: "",
+    },
+    GameDefinition {
+        id: "wow",
+        name: "World of Warcraft",
+        steam_app_id: 0,
+        executables: &["_retail_\\Wow.exe", "Wow.exe"],
+        mod_support: ModSupportLevel::Partial,
+        supported_mod_types: &["simple"],
+        merge_mods: false,
+        support_path_suffix: "_retail_\\Interface\\AddOns",
+    },
+    GameDefinition {
+        id: "starcraft2",
+        name: "StarCraft II",
+        steam_app_id: 0,
+        executables: &["SC2_x64.exe", "SC2.exe"],
+        mod_support: ModSupportLevel::None,
+        supported_mod_types: &[],
+        merge_mods: false,
+        support_path_suffix: "",
+    },
+    GameDefinition {
+        id: "hearthstone",
+        name: "Hearthstone",
+        steam_app_id: 0,
+        executables: &["Hearthstone.exe"],
+        mod_support: ModSupportLevel::None,
+        supported_mod_types: &[],
+        merge_mods: false,
+        support_path_suffix: "",
+    },
+    GameDefinition {
+        id: "warcraft3r",
+        name: "Warcraft III: Reforged",
+        steam_app_id: 0,
+        executables: &["_retail_\\x86_64\\Warcraft III.exe"],
         mod_support: ModSupportLevel::None,
         supported_mod_types: &[],
         merge_mods: false,
@@ -860,17 +941,47 @@ impl GameDetector {
     {
         let mut search_paths: Vec<PathBuf> = Vec::new();
         if let Ok(home) = std::env::var("HOME") {
-            let home = PathBuf::from(home);
+            let home = PathBuf::from(&home);
+            // Стандартные пути
             for root in [home.join(".steam/steam"), home.join(".local/share/Steam")] {
                 let sp = root.join("steamapps");
                 if sp.is_dir() {
                     search_paths.push(sp);
                 }
             }
+            // Flatpak
+            let flatpak =
+                home.join(".var/app/com.valvesoftware.Steam/.local/share/Steam/steamapps");
+            if flatpak.is_dir() && !search_paths.contains(&flatpak) {
+                search_paths.push(flatpak);
+            }
+            // Snap
+            let snap = home.join("snap/steam/common/.local/share/Steam/steamapps");
+            if snap.is_dir() && !search_paths.contains(&snap) {
+                search_paths.push(snap);
+            }
+
+            // Дополнительные библиотеки из libraryfolders.vdf
+            for sp in &search_paths {
+                let vdf = sp.join("libraryfolders.vdf");
+                if vdf.is_file() {
+                    if let Ok(content) = fs::read_to_string(&vdf) {
+                        for folder in steam_parse::parse_libraryfolders_vdf(&content) {
+                            let steamapps = folder.join("steamapps");
+                            if steamapps.is_dir() && !search_paths.contains(&steamapps) {
+                                search_paths.push(steamapps);
+                            }
+                        }
+                    }
+                }
+            }
+        } else {
+            eprintln!("$HOME not set; skipping Steam Linux detection");
         }
+
         let mut seen = HashSet::new();
         search_paths.retain(|p| {
-            let k = p.to_string_lossy().to_string();
+            let k = p.to_string_lossy().to_lowercase();
             seen.insert(k)
         });
         if search_paths.is_empty() {
@@ -889,30 +1000,42 @@ impl GameDetector {
         let Ok(home) = std::env::var("HOME") else {
             return out;
         };
-        let heroic = PathBuf::from(home).join(".config").join("heroic");
-        if !heroic.is_dir() {
+        let mut heroic_dirs = Vec::new();
+        let heroic_default = PathBuf::from(&home).join(".config").join("heroic");
+        if heroic_default.is_dir() {
+            heroic_dirs.push(heroic_default);
+        }
+        // Heroic Flatpak
+        let heroic_flatpak =
+            PathBuf::from(&home).join(".var/app/com.heroic.games.launcher/config/heroic");
+        if heroic_flatpak.is_dir() && !heroic_dirs.iter().any(|d| d == &heroic_flatpak) {
+            heroic_dirs.push(heroic_flatpak);
+        }
+        if heroic_dirs.is_empty() {
             return out;
         }
-        let mut jsons = Vec::new();
-        GameDetector::collect_json_files_recursive(&heroic, &mut jsons, 0);
-        for jf in jsons {
-            let Ok(txt) = fs::read_to_string(&jf) else {
-                continue;
-            };
-            let Ok(v) = serde_json::from_str::<serde_json::Value>(&txt) else {
-                continue;
-            };
-            let launcher = heroic_guess_launcher(&v);
-            let mut paths = Vec::new();
-            heroic_json_collect_install_paths(&v, &mut paths);
-            let mut seen = HashSet::new();
-            paths.retain(|p| seen.insert(p.to_string_lossy().to_string()));
-            for path in paths {
-                if let Some(mut game) =
-                    self.try_match_known_game_in_folder(&path, launcher, None, None)
-                {
-                    game.details.environment.insert("heroic".into(), "1".into());
-                    out.push(game);
+        for heroic in heroic_dirs {
+            let mut jsons = Vec::new();
+            GameDetector::collect_json_files_recursive(&heroic, &mut jsons, 0);
+            for jf in jsons {
+                let Ok(txt) = fs::read_to_string(&jf) else {
+                    continue;
+                };
+                let Ok(v) = serde_json::from_str::<serde_json::Value>(&txt) else {
+                    continue;
+                };
+                let launcher = heroic_guess_launcher(&v);
+                let mut paths = Vec::new();
+                heroic_json_collect_install_paths(&v, &mut paths);
+                let mut seen = HashSet::new();
+                paths.retain(|p| seen.insert(p.to_string_lossy().to_string()));
+                for path in paths {
+                    if let Some(mut game) =
+                        self.try_match_known_game_in_folder(&path, launcher, None, None)
+                    {
+                        game.details.environment.insert("heroic".into(), "1".into());
+                        out.push(game);
+                    }
                 }
             }
         }
@@ -929,30 +1052,39 @@ impl GameDetector {
         let Ok(home) = std::env::var("HOME") else {
             return out;
         };
-        let games_dir = PathBuf::from(home).join(".local/share/lutris/games");
-        if !games_dir.is_dir() {
-            return out;
+        let mut games_dirs = Vec::new();
+        let lutris_default = PathBuf::from(&home).join(".local/share/lutris/games");
+        if lutris_default.is_dir() {
+            games_dirs.push(lutris_default);
         }
-        let Ok(rd) = fs::read_dir(&games_dir) else {
-            return out;
-        };
-        for e in rd.filter_map(|x| x.ok()) {
-            let p = e.path();
-            if p.extension().and_then(|x| x.to_str()) != Some("yml") {
-                continue;
-            }
-            let Ok(txt) = fs::read_to_string(&p) else {
-                continue;
-            };
-            let Some(install_path) = lutris_install_path_from_yml(&txt) else {
+        // Lutris Flatpak
+        let lutris_flatpak =
+            PathBuf::from(&home).join(".var/app/net.lutris.Lutris/data/lutris/games");
+        if lutris_flatpak.is_dir() && !games_dirs.iter().any(|d| d == &lutris_flatpak) {
+            games_dirs.push(lutris_flatpak);
+        }
+        for games_dir in games_dirs {
+            let Ok(rd) = fs::read_dir(&games_dir) else {
                 continue;
             };
-            let launcher = lutris_guess_launcher(&txt);
-            if let Some(mut game) =
-                self.try_match_known_game_in_folder(&install_path, launcher, None, None)
-            {
-                game.details.environment.insert("lutris".into(), "1".into());
-                out.push(game);
+            for e in rd.filter_map(|x| x.ok()) {
+                let p = e.path();
+                if p.extension().and_then(|x| x.to_str()) != Some("yml") {
+                    continue;
+                }
+                let Ok(txt) = fs::read_to_string(&p) else {
+                    continue;
+                };
+                let Some(install_path) = lutris_install_path_from_yml(&txt) else {
+                    continue;
+                };
+                let launcher = lutris_guess_launcher(&txt);
+                if let Some(mut game) =
+                    self.try_match_known_game_in_folder(&install_path, launcher, None, None)
+                {
+                    game.details.environment.insert("lutris".into(), "1".into());
+                    out.push(game);
+                }
             }
         }
         out
@@ -977,22 +1109,25 @@ impl GameDetector {
                 continue;
             }
 
-            if let Ok(entries) = fs::read_dir(search_path) {
-                for entry in entries.filter_map(|e| e.ok()) {
-                    let file_name = entry.file_name();
-                    let file_name_str = file_name.to_string_lossy().to_string();
+            let entries = match fs::read_dir(search_path) {
+                Ok(e) => e,
+                Err(err) => {
+                    eprintln!("Cannot read Steam library {}: {err}", search_path.display());
+                    continue;
+                }
+            };
+            for entry in entries.filter_map(|e| e.ok()) {
+                let file_name = entry.file_name();
+                let file_name_str = file_name.to_string_lossy().to_string();
 
-                    if file_name_str.starts_with("appmanifest_") && file_name_str.ends_with(".acf")
+                if file_name_str.starts_with("appmanifest_") && file_name_str.ends_with(".acf") {
+                    if let Some(app_id_str) = file_name_str
+                        .strip_prefix("appmanifest_")
+                        .and_then(|s| s.strip_suffix(".acf"))
                     {
-                        if let Some(app_id_str) = file_name_str
-                            .strip_prefix("appmanifest_")
-                            .and_then(|s| s.strip_suffix(".acf"))
-                        {
-                            if let Ok(app_id) = app_id_str.parse::<u32>() {
-                                if let Some(install_dir) = self.parse_app_manifest(&entry.path()) {
-                                    steam_app_ids
-                                        .insert(install_dir, (app_id, entry.path().clone()));
-                                }
+                        if let Ok(app_id) = app_id_str.parse::<u32>() {
+                            if let Some(install_dir) = self.parse_app_manifest(&entry.path()) {
+                                steam_app_ids.insert(install_dir, (app_id, entry.path().clone()));
                             }
                         }
                     }
@@ -1233,18 +1368,27 @@ impl GameDetector {
                 Ok(s) => s,
                 Err(_) => continue,
             };
-            let exe_str: Option<String> = sub
-                .get_value("exe")
+            // Приоритет: path > exe > InstallDir
+            let path_res: Option<String> = sub
+                .get_value("path")
                 .ok()
-                .or_else(|| sub.get_value("EXE").ok());
-            let Some(exe_str) = exe_str else {
+                .or_else(|| sub.get_value("PATH").ok());
+            let exe_res: Option<String> = sub.get_value("exe").ok().map(|p: String| {
+                let pb = PathBuf::from(p.trim().trim_matches('"'));
+                pb.parent()
+                    .map(|d| d.to_string_lossy().to_string())
+                    .unwrap_or_default()
+            });
+            let dir_res: Option<String> = sub.get_value("InstallDir").ok();
+            let install_dir: Option<String> = path_res.or(exe_res).or(dir_res);
+            let Some(dir) = install_dir else {
                 continue;
             };
-            let exe_path = PathBuf::from(exe_str.trim());
-            let Some(parent) = exe_path.parent() else {
+            let dir = dir.trim().trim_matches('"');
+            if dir.is_empty() {
                 continue;
-            };
-            let install_path = parent.to_path_buf();
+            }
+            let install_path = PathBuf::from(dir);
             if let Some(game) = self.try_match_known_game_in_folder(
                 &install_path,
                 GameLauncher::Gog,
@@ -1347,6 +1491,7 @@ impl GameDetector {
     }
 
     /// EA Desktop / Origin: `HKLM\...\EA Games\<title>\Install Dir`
+    /// EA Desktop (new): `HKCU\...\EA Desktop\<title>\InstallLocation`
     #[cfg(windows)]
     fn detect_ea_origin_windows<F, E>(&self, _on_progress: &F, _on_error: &E) -> Vec<Game>
     where
@@ -1354,7 +1499,13 @@ impl GameDetector {
         E: Fn(GameDetectionError),
     {
         let mut out = Vec::new();
-        for root_path in ["SOFTWARE\\WOW6432Node\\EA Games", "SOFTWARE\\EA Games"] {
+        // EA Games (legacy + EA Desktop)
+        for root_path in [
+            "SOFTWARE\\WOW6432Node\\EA Games",
+            "SOFTWARE\\EA Games",
+            "SOFTWARE\\Electronic Arts\\EA Games",
+            "SOFTWARE\\WOW6432Node\\Electronic Arts\\EA Games",
+        ] {
             let hklm = RegKey::predef(HKEY_LOCAL_MACHINE);
             let Ok(ea_root) = hklm.open_subkey(root_path) else {
                 continue;
@@ -1366,11 +1517,15 @@ impl GameDetector {
                 let install_dir: Option<String> = sub
                     .get_value("Install Dir")
                     .ok()
-                    .or_else(|| sub.get_value("InstallDir").ok());
+                    .or_else(|| sub.get_value("InstallDir").ok())
+                    .or_else(|| sub.get_value("InstallLocation").ok());
                 let Some(dir) = install_dir else {
                     continue;
                 };
                 let install_path = PathBuf::from(dir.trim().trim_matches('"'));
+                if install_path.as_os_str().is_empty() {
+                    continue;
+                }
                 if let Some(mut game) = self.try_match_known_game_in_folder(
                     &install_path,
                     GameLauncher::Origin,
@@ -1384,6 +1539,46 @@ impl GameDetector {
                 }
             }
         }
+
+        // EA Desktop: HKCU
+        let hkcu = RegKey::predef(HKEY_CURRENT_USER);
+        for root_path in [
+            "Software\\Electronic Arts\\EA Desktop\\Game Download\\Installs",
+            "Software\\Electronic Arts\\EA Desktop\\Installs",
+        ] {
+            let Ok(ea_root) = hkcu.open_subkey(root_path) else {
+                continue;
+            };
+            for key_name in ea_root.enum_keys().filter_map(|e| e.ok()) {
+                let Ok(sub) = ea_root.open_subkey(&key_name) else {
+                    continue;
+                };
+                let install_dir: Option<String> = sub
+                    .get_value("InstallLocation")
+                    .ok()
+                    .or_else(|| sub.get_value("Install Dir").ok())
+                    .or_else(|| sub.get_value("InstallDir").ok());
+                let Some(dir) = install_dir else {
+                    continue;
+                };
+                let install_path = PathBuf::from(dir.trim().trim_matches('"'));
+                if install_path.as_os_str().is_empty() {
+                    continue;
+                }
+                if let Some(mut game) = self.try_match_known_game_in_folder(
+                    &install_path,
+                    GameLauncher::Origin,
+                    None,
+                    None,
+                ) {
+                    game.details
+                        .environment
+                        .insert("ea_source".into(), "ea_desktop".into());
+                    out.push(game);
+                }
+            }
+        }
+
         out
     }
 
@@ -1434,6 +1629,17 @@ impl GameDetector {
         if !db.is_file() {
             return Vec::new();
         }
+
+        // Try protobuf format first (modern Battle.net client)
+        if let Ok(data) = std::fs::read(&db) {
+            let mut paths = Vec::new();
+            Self::battlenet_extract_paths_from_protobuf(&data, &mut paths);
+            if !paths.is_empty() {
+                return paths;
+            }
+        }
+
+        // Fall back to SQLite format (legacy Battle.net client)
         let Ok(conn) = Connection::open_with_flags(&db, OpenFlags::SQLITE_OPEN_READ_ONLY) else {
             return Vec::new();
         };
@@ -1453,6 +1659,115 @@ impl GameDetector {
             }
         }
         Vec::new()
+    }
+
+    /// Decode a varint from `buf` starting at `pos`, returns (value, new_pos).
+    #[cfg(windows)]
+    fn protobuf_decode_varint(buf: &[u8], pos: usize) -> Option<(u64, usize)> {
+        let mut result: u64 = 0;
+        let mut shift: u32 = 0;
+        let mut p = pos;
+        loop {
+            if p >= buf.len() {
+                return None;
+            }
+            let b = buf[p] as u64;
+            p += 1;
+            result |= (b & 0x7F) << shift;
+            shift += 7;
+            if b & 0x80 == 0 {
+                break;
+            }
+        }
+        Some((result, p))
+    }
+
+    /// Recursively extract plausible game install paths from a protobuf blob.
+    /// Looks for length-delimited (wire-type 2) string fields whose content looks
+    /// like an absolute Windows path (e.g. `D:/Games/Overwatch`).
+    #[cfg(windows)]
+    fn battlenet_extract_paths_from_protobuf(buf: &[u8], out: &mut Vec<PathBuf>) {
+        Self::battlenet_parse_protobuf_message(buf, out, 0);
+    }
+
+    #[cfg(windows)]
+    fn battlenet_parse_protobuf_message(buf: &[u8], out: &mut Vec<PathBuf>, max_depth: usize) {
+        let mut pos = 0usize;
+        while pos < buf.len() {
+            // Decode tag (field_number << 3 | wire_type)
+            let Some((tag, new_pos)) = Self::protobuf_decode_varint(buf, pos) else {
+                break;
+            };
+            pos = new_pos;
+            let wire_type = (tag & 0x07) as u8;
+            // let _field_num = tag >> 3;
+
+            match wire_type {
+                0 => {
+                    // Varint
+                    if let Some((_, new_pos)) = Self::protobuf_decode_varint(buf, pos) {
+                        pos = new_pos;
+                    } else {
+                        break;
+                    }
+                }
+                1 => {
+                    // 64-bit fixed
+                    if pos + 8 > buf.len() {
+                        break;
+                    }
+                    pos += 8;
+                }
+                2 => {
+                    // Length-delimited: string or nested message
+                    let Some((len, new_pos)) = Self::protobuf_decode_varint(buf, pos) else {
+                        break;
+                    };
+                    pos = new_pos;
+                    let len = len as usize;
+                    if pos + len > buf.len() {
+                        break;
+                    }
+                    let chunk = &buf[pos..pos + len];
+                    pos += len;
+
+                    // Try as UTF-8 string that looks like a path
+                    if let Ok(s) = std::str::from_utf8(chunk) {
+                        let trimmed = s.trim();
+                        if Self::looks_like_install_path(trimmed) {
+                            out.push(PathBuf::from(trimmed));
+                        }
+                    }
+
+                    // Recurse into nested message
+                    if max_depth < 4 {
+                        Self::battlenet_parse_protobuf_message(chunk, out, max_depth + 1);
+                    }
+                }
+                5 => {
+                    // 32-bit fixed
+                    if pos + 4 > buf.len() {
+                        break;
+                    }
+                    pos += 4;
+                }
+                _ => break,
+            }
+        }
+    }
+
+    /// Returns true if `s` looks like an absolute Windows install path
+    /// (e.g. `C:/Program Files/...` or `D:/Games/...`).
+    #[cfg(windows)]
+    fn looks_like_install_path(s: &str) -> bool {
+        if s.len() < 4 {
+            return false;
+        }
+        let bytes = s.as_bytes();
+        // Drive letter followed by `:\` or `:/`
+        bytes[0].is_ascii_alphabetic()
+            && bytes[1] == b':'
+            && (bytes[2] == b'\\' || bytes[2] == b'/')
     }
 
     #[cfg(windows)]
@@ -1617,6 +1932,20 @@ impl GameDetector {
         F: Fn(DetectionProgress),
         E: Fn(GameDetectionError),
     {
+        /// Registry entries from these publishers belong to desktop launchers
+        /// (Battle.net, EA App, Ubisoft, etc.) and should not be tagged as
+        /// Microsoft Store / UWP.
+        const KNOWN_LAUNCHER_PUBLISHERS: &[&str] = &[
+            "blizzard entertainment",
+            "electronic arts",
+            "ubisoft",
+            "riot games",
+            "epic games",
+            "valve",
+            "hi-rez studios",
+            "wargaming",
+        ];
+
         let mut out = Vec::new();
         let hklm = RegKey::predef(HKEY_LOCAL_MACHINE);
         for uninstall_path in [
@@ -1633,6 +1962,20 @@ impl GameDetector {
                 let Ok(sub) = uninstall.open_subkey(&key_name) else {
                     continue;
                 };
+
+                // Skip entries from known desktop launchers — they are handled
+                // by their own detectors (Battle.net, EA, Ubisoft …).
+                let publisher: Option<String> = sub.get_value("Publisher").ok();
+                if let Some(pub_name) = publisher {
+                    let pub_lower = pub_name.to_lowercase();
+                    if KNOWN_LAUNCHER_PUBLISHERS
+                        .iter()
+                        .any(|p| pub_lower.contains(p))
+                    {
+                        continue;
+                    }
+                }
+
                 let install_loc: Option<String> = sub.get_value("InstallLocation").ok();
                 let Some(loc) = install_loc else {
                     continue;
@@ -1743,7 +2086,9 @@ impl GameDetector {
                 .file_stem()
                 .map(|s| s.to_string_lossy().to_lowercase())
                 .unwrap_or_default();
-            if stem.contains(&id) || id.contains(&stem) {
+            // stem содержит id: "SkyrimSE" ← "skyrim" ✓
+            // stem == id:         точное совпадение ✓
+            if stem.contains(&id) || stem == id {
                 return Some(e.clone());
             }
         }
@@ -1757,7 +2102,53 @@ impl GameDetector {
     }
 
     fn find_executable_in_dir(&self, dir: &Path) -> Option<String> {
-        self.list_exe_files_in_dir(dir).into_iter().next()
+        self.list_exe_files_in_dir(dir)
+            .into_iter()
+            .next()
+            .or_else(|| self.find_executable_recursive(dir, 0))
+    }
+
+    fn find_executable_recursive(&self, dir: &Path, depth: usize) -> Option<String> {
+        if depth > 5 {
+            return None;
+        }
+        if let Ok(entries) = fs::read_dir(dir) {
+            let mut entries: Vec<_> = entries.filter_map(|e| e.ok()).collect();
+            entries.sort_by_key(|e| e.file_name());
+
+            for entry in &entries {
+                let path = entry.path();
+                if path.is_file() {
+                    #[cfg(windows)]
+                    let is_exe = path
+                        .extension()
+                        .map(|ext| ext.eq_ignore_ascii_case("exe"))
+                        .unwrap_or(false);
+                    #[cfg(not(windows))]
+                    let is_exe = {
+                        let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
+                        ext.eq_ignore_ascii_case("exe")
+                            || ext.is_empty()
+                            || self.is_unix_executable(&path)
+                    };
+                    if is_exe {
+                        if let Ok(rel) = path.strip_prefix(dir) {
+                            return Some(rel.to_string_lossy().to_string());
+                        }
+                    }
+                }
+            }
+
+            for entry in &entries {
+                let path = entry.path();
+                if path.is_dir() {
+                    if let Some(exe) = self.find_executable_recursive(&path, depth + 1) {
+                        return Some(exe);
+                    }
+                }
+            }
+        }
+        None
     }
 
     fn get_game_name_from_manifest(&self, manifest_path: &Path) -> Option<String> {
@@ -1861,17 +2252,50 @@ impl GameDetector {
 mod steam_parse {
     use std::path::PathBuf;
 
+    /// Извлечь значение между кавычками из строки, игнорируя экранированные кавычки.
+    fn extract_quoted_values(line: &str) -> Vec<String> {
+        let mut vals = Vec::new();
+        let mut buf = String::new();
+        let mut in_quote = false;
+        let mut chars = line.chars().peekable();
+        while let Some(ch) = chars.next() {
+            if ch == '\\' && chars.peek() == Some(&'"') {
+                // escaped quote — пропускаем '\', пишем '"' как обычный символ
+                buf.push('"');
+                chars.next();
+            } else if ch == '"' {
+                if in_quote {
+                    vals.push(buf.clone());
+                    buf.clear();
+                }
+                in_quote = !in_quote;
+            } else if in_quote {
+                buf.push(ch);
+            }
+        }
+        vals
+    }
+
+    /// Нормализовать разделители в Windows-путях («\\\\» → «\\», «/» → «\\»).
+    fn normalize_win_path(raw: &str) -> PathBuf {
+        let p = raw.replace("\\\\", "\\").replace('/', "\\");
+        PathBuf::from(p)
+    }
+
     pub fn parse_libraryfolders_vdf(content: &str) -> Vec<PathBuf> {
         let mut folders = Vec::new();
         for line in content.lines() {
-            let line = line.trim();
-            if !line.contains("\"path\"") {
+            let trimmed = line.trim();
+            let lowered = trimmed.to_lowercase();
+            if !lowered.contains("\"path\"") {
                 continue;
             }
-            if let Some(path) = line.split('"').nth(3) {
-                let p = path.replace("\\\\", "\\");
-                if !p.is_empty() {
-                    folders.push(PathBuf::from(p));
+            let vals = extract_quoted_values(trimmed);
+            // vals[0] = "path", vals[1] = значение пути
+            if vals.len() >= 2 {
+                let p = normalize_win_path(&vals[1]);
+                if !p.as_os_str().is_empty() {
+                    folders.push(p);
                 }
             }
         }
@@ -1879,12 +2303,16 @@ mod steam_parse {
     }
 
     /// Поля `installdir`, `name` и т.д. в `.acf` / фрагментах VDF.
+    ///
+    /// Ключи сравниваются case-insensitive.  Значение берётся **до** закрывающей
+    /// кавычки, поэтому кавычки внутри значения не сломают парсинг.
     pub fn parse_acf_field(content: &str, field: &str) -> Option<String> {
         let needle = format!("\"{}\"", field);
+        let needle_lower = needle.to_lowercase();
         for line in content.lines() {
-            let line = line.trim();
-            if line.contains(&needle) {
-                return line.split('"').nth(3).map(String::from);
+            let trimmed = line.trim();
+            if trimmed.to_lowercase().contains(&needle_lower) {
+                return extract_quoted_values(trimmed).into_iter().nth(1);
             }
         }
         None
@@ -1909,6 +2337,28 @@ mod steam_parse {
         }
 
         #[test]
+        fn libraryfolders_case_insensitive() {
+            let vdf = r#""0"
+	{
+		"Path"		"D:\\\\Games"
+	}"#;
+            let paths = parse_libraryfolders_vdf(vdf);
+            assert_eq!(paths.len(), 1);
+            assert!(paths[0].to_string_lossy().contains("Games"));
+        }
+
+        #[test]
+        fn libraryfolders_forward_slash() {
+            let vdf = r#""0"
+	{
+		"path"		"D:/SteamLibrary"
+	}"#;
+            let paths = parse_libraryfolders_vdf(vdf);
+            assert_eq!(paths.len(), 1);
+            assert!(paths[0].to_string_lossy().contains("SteamLibrary"));
+        }
+
+        #[test]
         fn acf_installdir() {
             let acf = r#""AppState"
 {
@@ -1923,6 +2373,12 @@ mod steam_parse {
         #[test]
         fn acf_name() {
             let acf = r#"	"name"		"Half-Life 2""#;
+            assert_eq!(parse_acf_field(acf, "name").as_deref(), Some("Half-Life 2"));
+        }
+
+        #[test]
+        fn acf_name_case_insensitive() {
+            let acf = r#"	"Name"		"Half-Life 2""#;
             assert_eq!(parse_acf_field(acf, "name").as_deref(), Some("Half-Life 2"));
         }
     }

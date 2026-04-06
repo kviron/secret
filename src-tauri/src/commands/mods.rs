@@ -1,4 +1,6 @@
-use crate::models::Mod;
+use crate::models::{DeployStrategy, FomodInfo, Mod, ValidationResult};
+use crate::services::fomod_parser;
+use crate::services::security_validator::SecurityValidator;
 use crate::AppState;
 use tauri::State;
 
@@ -29,12 +31,27 @@ pub async fn get_mods(game_id: String, state: State<'_, AppState>) -> Result<Vec
 pub async fn set_mod_enabled(
     mod_id: String,
     enabled: bool,
+    strategy: Option<String>,
     state: State<'_, AppState>,
 ) -> Result<(), String> {
     if enabled {
-        state.deployer.enable_mod(&mod_id).await?;
+        let strat = strategy
+            .map(|s| DeployStrategy::from_str(&s))
+            .unwrap_or_default();
+        state.deployer.enable_mod(&mod_id, strat).await?;
     } else {
         state.deployer.disable_mod(&mod_id).await?;
     }
     Ok(())
+}
+
+#[tauri::command]
+pub fn parse_fomod(archive_dir: String) -> Result<FomodInfo, String> {
+    fomod_parser::parse_fomod(std::path::Path::new(&archive_dir))
+}
+
+#[tauri::command]
+pub fn validate_mod_files(mod_dir: String) -> Result<ValidationResult, String> {
+    let validator = SecurityValidator::new();
+    validator.validate_mod(std::path::Path::new(&mod_dir))
 }

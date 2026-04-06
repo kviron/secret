@@ -10,14 +10,14 @@ import './Sidebar.css';
 
 interface GeneralNavItem {
   path: string;
-  labelKey: 'nav.games' | 'nav.deployments' | 'nav.settings';
+  labelKey: 'nav.games' | 'nav.downloads' | 'nav.settings';
   icon: string;
   end?: boolean;
 }
 
 const generalNavItems: GeneralNavItem[] = [
   { path: '/', labelKey: 'nav.games', icon: '🎮', end: true },
-  { path: '/deployments', labelKey: 'nav.deployments', icon: '🚀' },
+  { path: '/downloads', labelKey: 'nav.downloads', icon: '⬇️' },
   { path: '/settings', labelKey: 'nav.settings', icon: '⚙️' },
 ];
 
